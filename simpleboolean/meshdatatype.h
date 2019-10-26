@@ -29,6 +29,7 @@ struct Mesh
 };
 
 bool loadTriangulatedObj(Mesh &mesh, const QString &filename);
+void exportTriangulatedObj(const Mesh &mesh, const QString &filename);
   
 }
 

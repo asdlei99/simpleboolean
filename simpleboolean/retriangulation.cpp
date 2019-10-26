@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <cmath>
+#include <QDebug>
 
 namespace simpleboolean
 {
@@ -14,6 +15,8 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
         const std::vector<std::vector<size_t>> &edgeLoops,
         std::vector<Face> &reTriangulatedTriangles)
 {
+    qDebug() << "Start reTriangulate for triangle:" << triangle[0] << triangle[1] << triangle[2];
+    
     std::vector<std::pair<size_t, size_t>> newEdges;
     
     // Test all heads and tails of open edge loops with the edges of triangle,
@@ -25,6 +28,12 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
             endpoints.insert(edgeLoop.back());
         }
     }
+    
+    qDebug() << "endpoints:";
+    for (const auto &it: endpoints) {
+        qDebug() << it;
+    }
+    
     std::vector<float> triangleEdgeLengths;
     for (size_t i = 0; i < 3; ++i) {
         size_t j = (i + 1) % 3;
@@ -64,9 +73,15 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
         std::vector<size_t> points;
         points.push_back(startCorner);
         for (const auto &it: it.second) {
+            if (it.first == startCorner || it.first == stopCorner)
+                continue;
             points.push_back(it.first);
         }
         points.push_back(stopCorner);
+        qDebug() << "edge:" << it.first << "points:";
+        for (const auto &it: points) {
+            qDebug() << it;
+        }
         for (size_t i = 1; i < points.size(); ++i) {
             newEdges.push_back({points[i - 1], points[i]});
         }
@@ -116,6 +131,11 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
     for (const auto &edge: newEdges) {
         halfEdgeLinkMap[edge.first].push_back(edge.second);
     }
+    for (size_t i = 0; i < 3; ++i) {
+        if (endpointsAttachedToEdges.find(i) != endpointsAttachedToEdges.end())
+            continue;
+        halfEdgeLinkMap[triangle[i]].push_back(triangle[(i + 1) % 3]);
+    }
     std::set<std::pair<size_t, size_t>> visited;
     while (!halfEdgeLinkMap.empty()) {
         std::vector<size_t> loop;
@@ -154,6 +174,14 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
         }
         if (!newEdgeLoopGenerated)
             break;
+    }
+    
+    qDebug() << "newEdgeLoops:";
+    for (const auto &it: newEdgeLoops) {
+        qDebug() << "----------";
+        for (const auto &subIt: it) {
+            qDebug() << subIt;
+        }
     }
     
     // Triangle edge loops

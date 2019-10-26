@@ -8,27 +8,17 @@
 
 MainWindow::MainWindow(void) 
 {
-    QMatrix4x4 rotation;
-    rotation.setToIdentity();
-    rotation.rotate(70, QVector3D(0, 1, 1));
-    
-    /*
-    TestMesh testMesh1;
-    testMesh1.transform(rotation);
-    
-    TestMesh testMesh2;
-    testMesh2.translate({0.0, 0.02, 0.023});
+    simpleboolean::Mesh mesh1;
+    simpleboolean::Mesh mesh2;
+    simpleboolean::loadTriangulatedObj(mesh1, "/Users/jeremy/Repositories/simpleboolean/examples/meerkat.obj");
+    simpleboolean::loadTriangulatedObj(mesh2, "/Users/jeremy/Repositories/simpleboolean/examples/addax.obj");
     
     simpleboolean::MeshCombiner combiner;
-    combiner.setMeshes(testMesh1.result(), testMesh2.result());
+    combiner.setMeshes(mesh1, mesh2);
     combiner.combine(simpleboolean::Operation::Union);
-    */
     
-    //Model *model = new Model(combiner.m_debugFirstMeshReTriangulated);
-    
-    simpleboolean::Mesh mesh;
-    simpleboolean::loadTriangulatedObj(mesh, "/Users/jeremy/Repositories/simpleboolean/examples/meerkat.obj");
-    Model *model = new Model(mesh);
+    Model *model = new Model(combiner.m_debugFirstMeshReTriangulated);
+    exportTriangulatedObj(combiner.m_debugFirstMeshReTriangulated, "/Users/jeremy/Desktop/debug.obj");
 
     m_renderWidget = new GLWidget(model);
     int size = QDesktopWidget().availableGeometry(this).size().height() * 0.7;
