@@ -16,6 +16,7 @@ MainWindow::MainWindow(void)
     testMesh1.transform(rotation);
     
     TestMesh testMesh2;
+    testMesh2.translate({0.0, 0.02, 0.023});
     
     simpleboolean::MeshCombiner combiner;
     combiner.setMeshes(testMesh1.result(), testMesh2.result());

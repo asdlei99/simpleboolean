@@ -18,6 +18,7 @@ public:
     
     // Debug only
     Mesh m_debugFirstMeshReTriangulated;
+    Mesh m_debugSecondMeshReTriangulated;
     
 private:
     void searchPotentialIntersectedPairs(std::vector<std::pair<size_t, size_t>> &pairs);

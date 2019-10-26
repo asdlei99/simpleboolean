@@ -18,7 +18,7 @@ static float angle360(const QVector3D &a, const QVector3D &b, const QVector3D &d
     auto angle = std::acos(QVector3D::dotProduct(a, b)) * 180.0 / 3.1415926;
     auto c = QVector3D::crossProduct(a, b);
     if (QVector3D::dotProduct(c, direct) < 0) {
-        angle += 180;
+        angle = 360 - angle;
     }
     return angle;
 }

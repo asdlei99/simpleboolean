@@ -293,6 +293,10 @@ void MeshCombiner::combine(Operation operation)
         std::vector<Face> triangles;
         doReTriangulation(&m_secondMesh, newEdgesPerTriangleInSecondMesh, triangles, edgeLoops);
         addUnIntersectedFaces(&m_secondMesh, reTriangulatedFacesInSecondMesh, triangles);
+        
+        m_debugSecondMeshReTriangulated.faces = triangles;
+        m_debugSecondMeshReTriangulated.vertices = m_newVertices;
+        
         EdgeLoop::merge(edgeLoops);
         SubSurface::createSubSurfaces(edgeLoops, triangles, secondSubSurfaces);
     }
