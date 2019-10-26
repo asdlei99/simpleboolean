@@ -9,6 +9,7 @@ INCLUDEPATH += ../thirdparty/moller97
 
 VPATH += ../
 
+SOURCES += simpleboolean/meshdatatype.cpp
 HEADERS += simpleboolean/meshdatatype.h
 
 SOURCES += simpleboolean/axisalignedboundingbox.cpp

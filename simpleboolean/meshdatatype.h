@@ -2,6 +2,7 @@
 #define SIMPLEBOOLEAN_MESH_DATA_TYPE_H
 #include <vector>
 #include <cstdlib>
+#include <QString>
 
 namespace simpleboolean
 {
@@ -26,6 +27,8 @@ struct Mesh
     std::vector<Vertex> vertices;
     std::vector<Face> faces;
 };
+
+bool loadTriangulatedObj(Mesh &mesh, const QString &filename);
   
 }
 
