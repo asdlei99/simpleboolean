@@ -1,6 +1,7 @@
 #include <simpleboolean/util.h>
 #include <QVector3D>
 #include <QtGlobal>
+#include <QPolygon>
 
 namespace simpleboolean
 {
@@ -25,8 +26,8 @@ float isNull(float number)
     return qFuzzyIsNull(number);
 }
 
-void projectToPlane(Vector planeNormal, Vertex planeOrigin,
-    Vector planeX, const std::vector<Vertex> &points,
+void projectToPlane(const Vector &planeNormal, const Vertex &planeOrigin,
+    const Vector &planeX, const std::vector<Vertex> &points,
     std::vector<Vertex> &result)
 {
     QVector3D normal = vertexToQVector3D(planeNormal);
@@ -40,6 +41,34 @@ void projectToPlane(Vector planeNormal, Vertex planeOrigin,
         point2D.xyz[1] = QVector3D::dotProduct(direction, yAxis);
         result.push_back(point2D);
     }
+}
+
+bool pointInPolygon2D(const Vertex &vertex, const std::vector<Vertex> &ring)
+{
+    QVector<QPoint> points;
+    for (const auto &it: ring) {
+        QPoint point(it.xyz[0], it.xyz[1]);
+        points.push_back(point);
+    }
+    QPolygon polygon(points);
+    return polygon.containsPoint(QPoint(vertex.xyz[0], vertex.xyz[1]), Qt::WindingFill);
+}
+
+void averageOfPoints2D(const std::vector<Vertex> &points, Vertex &result)
+{
+    Vertex sum;
+    sum.xyz[0] = 0;
+    sum.xyz[1] = 0;
+    for (const auto &it: points) {
+        sum.xyz[0] += it.xyz[0];
+        sum.xyz[1] += it.xyz[1];
+    }
+    result.xyz[0] = 0;
+    result.xyz[1] = 0;
+    if (points.empty())
+        return;
+    result.xyz[0] = sum.xyz[0] / points.size();
+    result.xyz[1] = sum.xyz[1] / points.size();
 }
 
 }
