@@ -6,16 +6,13 @@
 
 namespace simpleboolean
 {
-  
-struct Vertex
-{
-    float xyz[3];
-};
 
 struct Vector
 {
     float xyz[3];
 };
+
+typedef Vector Vertex;
 
 struct Face
 {
