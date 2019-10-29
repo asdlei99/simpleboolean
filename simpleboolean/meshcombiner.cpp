@@ -266,9 +266,9 @@ void MeshCombiner::combine(Operation operation)
                 newVertexToIndex(mesh->vertices[face.indices[2]]),
             };
             qDebug() << "Triangle:" << triangleVertices[0] << triangleVertices[1] << triangleVertices[2];
-            std::vector<Face> reTriangulatedTriangles;
-            ReTriangulation re;
-            re.reTriangulate(m_newVertices, triangleVertices, edgeLoopsPerFace, reTriangulatedTriangles);
+            ReTriangulation re(m_newVertices, triangleVertices, edgeLoopsPerFace);
+            re.reTriangulate();
+            const auto &reTriangulatedTriangles = re.getResult();
             qDebug() << "reTriangulatedTriangles:";
             for (const auto &it: reTriangulatedTriangles) {
                 qDebug() << it.indices[0] << it.indices[1] << it.indices[2];
@@ -301,7 +301,7 @@ void MeshCombiner::combine(Operation operation)
         std::vector<std::vector<size_t>> edgeLoops;
         std::vector<Face> triangles;
         doReTriangulation(&m_firstMesh, newEdgesPerTriangleInFirstMesh, triangles, edgeLoops);
-        //addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, triangles);
+        addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, triangles);
         
         m_debugFirstMeshReTriangulated.faces = triangles;
         m_debugFirstMeshReTriangulated.vertices = m_newVertices;

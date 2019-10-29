@@ -11,6 +11,15 @@ static QVector3D vertexToQVector3D(const Vertex &first)
     return QVector3D(first.xyz[0], first.xyz[1], first.xyz[2]);
 }
 
+static Vertex QVector3DToVertex(const QVector3D &v)
+{
+    Vertex vertex;
+    vertex.xyz[0] = v.x();
+    vertex.xyz[1] = v.y();
+    vertex.xyz[2] = v.z();
+    return vertex;
+}
+
 float distanceSquaredOfVertices(const Vertex &first, const Vertex &second)
 {
     return (vertexToQVector3D(first) - vertexToQVector3D(second)).lengthSquared();
@@ -69,6 +78,21 @@ void averageOfPoints2D(const std::vector<Vertex> &points, Vertex &result)
         return;
     result.xyz[0] = sum.xyz[0] / points.size();
     result.xyz[1] = sum.xyz[1] / points.size();
+}
+
+void triangleNormal(const Vertex &first, const Vertex &second, const Vertex &third, Vertex &normal)
+{
+    QVector3D v1 = vertexToQVector3D(first);
+    QVector3D v2 = vertexToQVector3D(second);
+    QVector3D v3 = vertexToQVector3D(third);
+    normal = QVector3DToVertex(QVector3D::normal(v1, v2, v3));
+}
+
+void directionBetweenTwoVectors(const Vector &from, const Vector &to, Vector &direction)
+{
+    QVector3D v1 = vertexToQVector3D(from);
+    QVector3D v2 = vertexToQVector3D(to);
+    direction = QVector3DToVertex((v1 - v2).normalized());
 }
 
 }

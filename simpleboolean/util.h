@@ -8,11 +8,13 @@ namespace simpleboolean
 float distanceSquaredOfVertices(const Vertex &first, const Vertex &second);
 float distanceOfVertices(const Vertex &first, const Vertex &second);
 float isNull(float number);
+void triangleNormal(const Vertex &first, const Vertex &second, const Vertex &third, Vertex &normal);
 void projectToPlane(const Vector &planeNormal, const Vertex &planeOrigin,
     const Vector &planeX, const std::vector<Vertex> &points,
     std::vector<Vertex> &result);
 bool pointInPolygon2D(const Vertex &vertex, const std::vector<Vertex> &ring);
 void averageOfPoints2D(const std::vector<Vertex> &points, Vertex &result);
+void directionBetweenTwoVectors(const Vector &from, const Vector &to, Vector &direction);
 
 }
 

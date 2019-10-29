@@ -1,6 +1,7 @@
 #include <simpleboolean/retriangulation.h>
 #include <simpleboolean/util.h>
 #include <simpleboolean/triangulate.h>
+#include <poly2tri.h>
 #include <set>
 #include <vector>
 #include <map>
@@ -10,40 +11,49 @@
 namespace simpleboolean
 {
 
-void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
+ReTriangulation::ReTriangulation(const std::vector<Vertex> &vertices,
         const std::vector<size_t> &triangle,
-        const std::vector<std::vector<size_t>> &edgeLoops,
-        std::vector<Face> &reTriangulatedTriangles)
+        const std::vector<std::vector<size_t>> &edgeLoops) :
+    m_vertices(vertices),
+    m_triangle(triangle),
+    m_edgeLoops(edgeLoops)
 {
-    qDebug() << "Start reTriangulate for triangle:" << triangle[0] << triangle[1] << triangle[2];
-    
+}
+
+const std::vector<Face> &ReTriangulation::getResult()
+{
+    return m_reTriangulatedTriangles;
+}
+
+void ReTriangulation::recalculateEdgeLoops()
+{
     std::vector<std::pair<size_t, size_t>> newEdges;
     
     // Test all heads and tails of open edge loops with the edges of triangle,
     // order by distances per each triangle edge.
     std::set<size_t> endpoints;
-    for (const auto &edgeLoop: edgeLoops) {
+    for (const auto &edgeLoop: m_edgeLoops) {
         if (edgeLoop.front() != edgeLoop.back()) {
             endpoints.insert(edgeLoop.front());
             endpoints.insert(edgeLoop.back());
+        } else {
+            std::vector<size_t> newEdgeLoop; // Remove the head
+            for (size_t i = 1; i < edgeLoop.size(); ++i)
+                newEdgeLoop.push_back(edgeLoop[i]);
+            m_closedEdgeLoops.push_back(newEdgeLoop);
         }
-    }
-    
-    qDebug() << "endpoints:";
-    for (const auto &it: endpoints) {
-        qDebug() << it;
     }
     
     std::vector<float> triangleEdgeLengths;
     for (size_t i = 0; i < 3; ++i) {
         size_t j = (i + 1) % 3;
-        triangleEdgeLengths.push_back(distanceOfVertices(vertices[triangle[i]], vertices[triangle[j]]));
+        triangleEdgeLengths.push_back(distanceOfVertices(m_vertices[m_triangle[i]], m_vertices[m_triangle[j]]));
     }
     std::map<std::pair<size_t, size_t>, float> distancesBetweenEndpointAndCorner;
     for (const auto index: endpoints) {
         for (size_t i = 0; i < 3; ++i) {
             distancesBetweenEndpointAndCorner.insert({{index, i},
-                distanceOfVertices(vertices[index], vertices[triangle[i]])
+                distanceOfVertices(m_vertices[index], m_vertices[m_triangle[i]])
             });
         }
     }
@@ -64,8 +74,8 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
             std::get<2>(offsets.front())});
     }
     for (auto &it: endpointsAttachedToEdges) {
-        size_t startCorner = triangle[it.first];
-        size_t stopCorner = triangle[(it.first + 1) % 3];
+        size_t startCorner = m_triangle[it.first];
+        size_t stopCorner = m_triangle[(it.first + 1) % 3];
         std::sort(it.second.begin(), it.second.end(), [](const std::pair<size_t, float> &first,
                 const std::pair<size_t, float> &second) {
             return first.second < second.second;
@@ -78,55 +88,12 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
             points.push_back(it.first);
         }
         points.push_back(stopCorner);
-        qDebug() << "edge:" << it.first << "points:";
-        for (const auto &it: points) {
-            qDebug() << it;
-        }
         for (size_t i = 1; i < points.size(); ++i) {
             newEdges.push_back({points[i - 1], points[i]});
         }
     }
-    
-    // Closed edge loops should have one vertex connected with other vertices.
-    // FIXME: Optimize me
-    std::vector<std::pair<size_t, long>> edgeVertices;
-    for (size_t i = 0; i < 3; ++i) {
-        edgeVertices.push_back({triangle[i], -1});
-    }
-    for (size_t loopIndex = 0; loopIndex < edgeLoops.size(); ++loopIndex) {
-        const auto &edgeLoop = edgeLoops[loopIndex];
-        bool isClosed = edgeLoop[0] == edgeLoop[edgeLoop.size() - 1];
-        for (size_t i = isClosed ? 1 : 0; i < edgeLoop.size(); ++i) {
-            edgeVertices.push_back({edgeLoop[i], loopIndex});
-        }
-        for (size_t i = 1; i < edgeLoop.size(); ++i) {
-            newEdges.push_back({edgeLoop[i - 1], edgeLoop[i]});
-            newEdges.push_back({edgeLoop[i], edgeLoop[i - 1]});
-        }
-    }
-    for (size_t loopIndex = 0; loopIndex < edgeLoops.size(); ++loopIndex) {
-        const auto &edgeLoop = edgeLoops[loopIndex];
-        bool isClosed = edgeLoop[0] == edgeLoop[edgeLoop.size() - 1];
-        if (!isClosed)
-            continue;
-        std::tuple<long, long, float> shortest = {-1, -1, std::numeric_limits<float>::max()};
-        for (const auto &point: edgeLoop) {
-            for (const auto &other: edgeVertices) {
-                if (other.second == (long)loopIndex)
-                    continue;
-                float distance = distanceOfVertices(vertices[point], vertices[other.first]);
-                if (distance < std::get<2>(shortest))
-                    shortest = {point, other.first, distance};
-            }
-        }
-        if (-1 == std::get<0>(shortest))
-            continue;
-        newEdges.push_back({std::get<0>(shortest), std::get<1>(shortest)});
-        newEdges.push_back({std::get<1>(shortest), std::get<0>(shortest)});
-    }
 
     // Create edge loops from new edges
-    std::vector<std::vector<size_t>> newEdgeLoops;
     std::map<size_t, std::vector<size_t>> halfEdgeLinkMap;
     for (const auto &edge: newEdges) {
         halfEdgeLinkMap[edge.first].push_back(edge.second);
@@ -134,7 +101,7 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
     for (size_t i = 0; i < 3; ++i) {
         if (endpointsAttachedToEdges.find(i) != endpointsAttachedToEdges.end())
             continue;
-        halfEdgeLinkMap[triangle[i]].push_back(triangle[(i + 1) % 3]);
+        halfEdgeLinkMap[m_triangle[i]].push_back(m_triangle[(i + 1) % 3]);
     }
     std::set<std::pair<size_t, size_t>> visited;
     while (!halfEdgeLinkMap.empty()) {
@@ -167,7 +134,7 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
                     if (findVert->second.empty())
                         halfEdgeLinkMap.erase(findVert);
                 }
-                newEdgeLoops.push_back(loop);
+                m_recalculatedEdgeLoops.push_back(loop);
                 newEdgeLoopGenerated = true;
                 break;
             }
@@ -175,18 +142,161 @@ void ReTriangulation::reTriangulate(const std::vector<Vertex> &vertices,
         if (!newEdgeLoopGenerated)
             break;
     }
-    
-    qDebug() << "newEdgeLoops:";
-    for (const auto &it: newEdgeLoops) {
-        qDebug() << "----------";
-        for (const auto &subIt: it) {
-            qDebug() << subIt;
+}
+
+void ReTriangulation::convertVerticesTo2D()
+{
+    Vector planeNormal;
+    triangleNormal(m_vertices[m_triangle[0]],
+        m_vertices[m_triangle[1]],
+        m_vertices[m_triangle[2]],
+        planeNormal);
+    const Vertex &planeOrigin = m_vertices[m_triangle[0]];
+    Vector planeX;
+    directionBetweenTwoVectors(m_vertices[m_triangle[0]],
+        m_vertices[m_triangle[1]], planeX);
+    std::vector<Vertex> points;
+    std::vector<Vertex> points2D;
+    std::vector<size_t> indices;
+    std::set<size_t> histories;
+    auto addPoints = [&](const std::vector<std::vector<size_t>> &edgeLoops) {
+        for (const auto &it: edgeLoops) {
+            for (const auto &index: it) {
+                if (histories.find(index) != histories.end())
+                    continue;
+                histories.insert(index);
+                indices.push_back(index);
+                points.push_back(m_vertices[index]);
+            }
         }
+    };
+    addPoints(m_closedEdgeLoops);
+    addPoints(m_recalculatedEdgeLoops);
+    projectToPlane(planeNormal, planeOrigin,
+        planeX, points, points2D);
+    for (size_t i = 0; i < points2D.size(); ++i) {
+        m_vertices2D.insert(std::make_pair(indices[i], points2D[i]));
     }
-    
-    // Triangle edge loops
-    for (const auto &it: newEdgeLoops) {
-        triangulate(vertices, reTriangulatedTriangles, it);
+}
+
+void ReTriangulation::convertEdgeLoopsToVertices2D()
+{
+    auto convertEdgeLoops = [&](const std::vector<std::vector<size_t>> &edgeLoops,
+            std::vector<std::vector<Vertex>> &result) {
+        for (size_t i = 0; i < edgeLoops.size(); ++i) {
+            std::vector<Vertex> points2D;
+            for (const auto &it: edgeLoops[i]) {
+                points2D.push_back(m_vertices2D[it]);
+            }
+            result.push_back(points2D);
+        }
+    };
+    convertEdgeLoops(m_closedEdgeLoops, m_closedEdgeLoopsVertices2D);
+    convertEdgeLoops(m_recalculatedEdgeLoops, m_recalculatedEdgeLoopsVertices2D);
+}
+
+bool ReTriangulation::attachClosedEdgeLoopsToOutter()
+{
+    if (m_closedEdgeLoops.empty() || m_recalculatedEdgeLoops.empty())
+        return true;
+    for (size_t inner = 0; inner < m_closedEdgeLoops.size(); ++inner) {
+        Vertex center2D;
+        averageOfPoints2D(m_closedEdgeLoopsVertices2D[inner], center2D);
+        bool attached = false;
+        for (size_t outter = 0; outter < m_recalculatedEdgeLoops.size(); ++outter) {
+            if (pointInPolygon2D(center2D, m_recalculatedEdgeLoopsVertices2D[outter])) {
+                m_innerEdgeLoopsMap[outter].push_back(inner);
+                attached = true;
+                break;
+            }
+        }
+        if (!attached)
+            return false;
+    }
+    return true;
+}
+
+// https://github.com/greenm01/poly2tri/blob/master/testbed/main.cc
+template <class C> void FreeClear( C & cntr )
+{
+    for ( typename C::iterator it = cntr.begin();
+              it != cntr.end(); ++it ) {
+        delete * it;
+    }
+    cntr.clear();
+}
+
+void ReTriangulation::reTriangulate()
+{
+    recalculateEdgeLoops();
+    convertVerticesTo2D();
+    convertEdgeLoopsToVertices2D();
+    if (!attachClosedEdgeLoopsToOutter()) {
+        ++m_errors;
+    } else {
+        for (size_t outter = 0; outter < m_recalculatedEdgeLoops.size(); ++outter) {
+            p2t::CDT *cdt = nullptr;
+            std::map<p2t::Point*, size_t> pointToIndexMap;
+            std::vector<std::vector<p2t::Point*>> polylines;
+            const auto &outterPoints2D = m_recalculatedEdgeLoopsVertices2D[outter];
+            {
+                std::vector<p2t::Point*> polyline;
+                for (size_t index = 0; index < outterPoints2D.size(); ++index) {
+                    const auto &it = outterPoints2D[index];
+                    p2t::Point *point = new p2t::Point(it.xyz[0], it.xyz[1]);
+                    qDebug() << QString("%1").arg((uint64_t)point , 0, 16);
+                    pointToIndexMap.insert(std::make_pair(point, m_recalculatedEdgeLoops[outter][index]));
+                    polyline.push_back(point);
+                }
+                cdt = new p2t::CDT(polyline);
+                polylines.push_back(polyline);
+            }
+            const auto &findInners = m_innerEdgeLoopsMap.find(outter);
+            if (findInners != m_innerEdgeLoopsMap.end()) {
+                for (const auto &inner: findInners->second) {
+                    const auto &innerPoints2D = m_recalculatedEdgeLoopsVertices2D[inner];
+                    {
+                        std::vector<p2t::Point*> polyline;
+                        for (size_t index = 0; index < innerPoints2D.size(); ++index) {
+                            const auto &it = innerPoints2D[index];
+                            p2t::Point *point = new p2t::Point(it.xyz[0], it.xyz[1]);
+                            pointToIndexMap.insert(std::make_pair(point, m_closedEdgeLoops[inner][index]));
+                            polyline.push_back(point);
+                        }
+                        cdt->AddHole(polyline);
+                        polylines.push_back(polyline);
+                    }
+                }
+            }
+            cdt->Triangulate();
+            const auto &triangles = cdt->GetTriangles();
+            for (const auto &it: triangles) {
+                Face face;
+                int faceVertexIndex = 0;
+                for (int i = 0; i < 3; ++i) {
+                    p2t::Point *point = it->GetPoint(i);
+                    auto findIndex = pointToIndexMap.find(point);
+                    if (findIndex == pointToIndexMap.end()) {
+                        qDebug() << "Map point to index failed" << QString("%1").arg((uint64_t)point , 0, 16);
+                        continue;
+                    }
+                    face.indices[faceVertexIndex++] = findIndex->second;
+                }
+                if (faceVertexIndex != 3) {
+                    continue;
+                }
+                m_reTriangulatedTriangles.push_back(face);
+            }
+            
+            // TODO: triangulate holes
+            // ... ...
+            
+            delete cdt;
+            for (size_t i = 0; i < polylines.size(); i++) {
+                std::vector<p2t::Point*> poly = polylines[i];
+                FreeClear(poly);
+            }
+        }
     }
 }
 
