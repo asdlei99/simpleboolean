@@ -247,32 +247,14 @@ void MeshCombiner::combine(Operation operation)
             const std::vector<std::pair<size_t, size_t>> &newEdges = it.second;
             std::vector<std::vector<size_t>> edgeLoopsPerFace;
             groupEdgesToLoops(newEdges, edgeLoopsPerFace);
-            qDebug() << "//////////////////////////////";
-            qDebug() << "newEdges.size:" << newEdges.size() << "edgeLoopsPerFace.size:" << edgeLoopsPerFace.size();
-            qDebug() << "Edges:";
-            for (const auto &it: newEdges) {
-                qDebug() << it.first << it.second;
-            }
-            qDebug() << "Loops:";
-            for (const auto &it: edgeLoopsPerFace) {
-                qDebug() << "::";
-                for (const auto &subIt: it) {
-                    qDebug() << subIt;
-                }
-            }
             std::vector<size_t> triangleVertices = {
                 newVertexToIndex(mesh->vertices[face.indices[0]]),
                 newVertexToIndex(mesh->vertices[face.indices[1]]),
                 newVertexToIndex(mesh->vertices[face.indices[2]]),
             };
-            qDebug() << "Triangle:" << triangleVertices[0] << triangleVertices[1] << triangleVertices[2];
             ReTriangulation re(m_newVertices, triangleVertices, edgeLoopsPerFace);
             re.reTriangulate();
             const auto &reTriangulatedTriangles = re.getResult();
-            qDebug() << "reTriangulatedTriangles:";
-            for (const auto &it: reTriangulatedTriangles) {
-                qDebug() << it.indices[0] << it.indices[1] << it.indices[2];
-            }
             for (const auto &loop: edgeLoopsPerFace) {
                 edgeLoops.push_back(loop);
             }
@@ -301,7 +283,7 @@ void MeshCombiner::combine(Operation operation)
         std::vector<std::vector<size_t>> edgeLoops;
         std::vector<Face> triangles;
         doReTriangulation(&m_firstMesh, newEdgesPerTriangleInFirstMesh, triangles, edgeLoops);
-        addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, triangles);
+        //addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, triangles);
         
         m_debugFirstMeshReTriangulated.faces = triangles;
         m_debugFirstMeshReTriangulated.vertices = m_newVertices;

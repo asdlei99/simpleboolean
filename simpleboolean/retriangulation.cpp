@@ -1,7 +1,7 @@
 #include <simpleboolean/retriangulation.h>
 #include <simpleboolean/util.h>
 #include <simpleboolean/triangulate.h>
-#include <poly2tri.h>
+#include <thirdparty/poly2tri/poly2tri/poly2tri.h>
 #include <set>
 #include <vector>
 #include <map>
@@ -60,12 +60,20 @@ void ReTriangulation::recalculateEdgeLoops()
     std::map<size_t, std::vector<std::pair<size_t, float>>> endpointsAttachedToEdges;
     for (const auto index: endpoints) {
         std::vector<std::tuple<size_t, float, float>> offsets;
+        bool collapsed = false;
         for (size_t i = 0; i < 3; ++i) {
+            if (m_triangle[i] == index) {
+                collapsed = true;
+                break;
+            }
             size_t j = (i + 1) % 3;
             float firstHalf = distancesBetweenEndpointAndCorner[{index, i}];
             float secondHalf = distancesBetweenEndpointAndCorner[{index, j}];
-            offsets.push_back({i, abs(firstHalf + secondHalf - triangleEdgeLengths[i]), firstHalf});
+            float lengthOffset = abs(firstHalf + secondHalf - triangleEdgeLengths[i]);
+            offsets.push_back({i, lengthOffset, firstHalf});
         }
+        if (collapsed)
+            break;
         std::sort(offsets.begin(), offsets.end(), [](const std::tuple<size_t, float, float> &first,
                 const std::tuple<size_t, float, float> &second) {
             return std::get<1>(first) < std::get<1>(second);
@@ -83,11 +91,10 @@ void ReTriangulation::recalculateEdgeLoops()
         std::vector<size_t> points;
         points.push_back(startCorner);
         for (const auto &it: it.second) {
-            if (it.first == startCorner || it.first == stopCorner)
-                continue;
             points.push_back(it.first);
         }
         points.push_back(stopCorner);
+        
         for (size_t i = 1; i < points.size(); ++i) {
             newEdges.push_back({points[i - 1], points[i]});
         }
@@ -153,7 +160,7 @@ void ReTriangulation::convertVerticesTo2D()
         planeNormal);
     const Vertex &planeOrigin = m_vertices[m_triangle[0]];
     Vector planeX;
-    directionBetweenTwoVectors(m_vertices[m_triangle[0]],
+    directionBetweenTwoVertices(m_vertices[m_triangle[0]],
         m_vertices[m_triangle[1]], planeX);
     std::vector<Vertex> points;
     std::vector<Vertex> points2D;
@@ -244,8 +251,8 @@ void ReTriangulation::reTriangulate()
                 for (size_t index = 0; index < outterPoints2D.size(); ++index) {
                     const auto &it = outterPoints2D[index];
                     p2t::Point *point = new p2t::Point(it.xyz[0], it.xyz[1]);
-                    qDebug() << QString("%1").arg((uint64_t)point , 0, 16);
-                    pointToIndexMap.insert(std::make_pair(point, m_recalculatedEdgeLoops[outter][index]));
+                    const auto &vertexIndex = m_recalculatedEdgeLoops[outter][index];
+                    pointToIndexMap.insert(std::make_pair(point, vertexIndex));
                     polyline.push_back(point);
                 }
                 cdt = new p2t::CDT(polyline);
@@ -260,7 +267,8 @@ void ReTriangulation::reTriangulate()
                         for (size_t index = 0; index < innerPoints2D.size(); ++index) {
                             const auto &it = innerPoints2D[index];
                             p2t::Point *point = new p2t::Point(it.xyz[0], it.xyz[1]);
-                            pointToIndexMap.insert(std::make_pair(point, m_closedEdgeLoops[inner][index]));
+                            const auto &vertexIndex = m_closedEdgeLoops[inner][index];
+                            pointToIndexMap.insert(std::make_pair(point, vertexIndex));
                             polyline.push_back(point);
                         }
                         cdt->AddHole(polyline);
@@ -270,6 +278,8 @@ void ReTriangulation::reTriangulate()
             }
             cdt->Triangulate();
             const auto &triangles = cdt->GetTriangles();
+            std::vector<Face> newFaces;
+            bool foundBadTriangle = false;
             for (const auto &it: triangles) {
                 Face face;
                 int faceVertexIndex = 0;
@@ -277,15 +287,36 @@ void ReTriangulation::reTriangulate()
                     p2t::Point *point = it->GetPoint(i);
                     auto findIndex = pointToIndexMap.find(point);
                     if (findIndex == pointToIndexMap.end()) {
-                        qDebug() << "Map point to index failed" << QString("%1").arg((uint64_t)point , 0, 16);
                         continue;
                     }
                     face.indices[faceVertexIndex++] = findIndex->second;
                 }
                 if (faceVertexIndex != 3) {
+                    qDebug() << "Ignore triangle";
+                    foundBadTriangle = true;
+                    ++m_errors;
                     continue;
                 }
-                m_reTriangulatedTriangles.push_back(face);
+                newFaces.push_back(face);
+            }
+            
+            if (foundBadTriangle) {
+                if (findInners != m_innerEdgeLoopsMap.end()) {
+                    qDebug() << "Triangulate failed";
+                } else {
+                    std::vector<Face> oldWayTriangulatedFaces;
+                    const auto &ring = m_recalculatedEdgeLoops[outter];
+                    triangulate(m_vertices, oldWayTriangulatedFaces, ring);
+                    if (oldWayTriangulatedFaces.empty()) {
+                        qDebug() << "Fallback triangulate failed";
+                    } else {
+                        for (const auto &it: oldWayTriangulatedFaces)
+                            m_reTriangulatedTriangles.push_back(it);
+                    }
+                }
+            } else {
+                for (const auto &it: newFaces)
+                    m_reTriangulatedTriangles.push_back(it);
             }
             
             // TODO: triangulate holes

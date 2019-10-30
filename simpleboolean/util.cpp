@@ -88,7 +88,7 @@ void triangleNormal(const Vertex &first, const Vertex &second, const Vertex &thi
     normal = QVector3DToVertex(QVector3D::normal(v1, v2, v3));
 }
 
-void directionBetweenTwoVectors(const Vector &from, const Vector &to, Vector &direction)
+void directionBetweenTwoVertices(const Vertex &from, const Vertex &to, Vector &direction)
 {
     QVector3D v1 = vertexToQVector3D(from);
     QVector3D v2 = vertexToQVector3D(to);

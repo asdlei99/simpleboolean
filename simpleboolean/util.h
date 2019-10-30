@@ -14,7 +14,7 @@ void projectToPlane(const Vector &planeNormal, const Vertex &planeOrigin,
     std::vector<Vertex> &result);
 bool pointInPolygon2D(const Vertex &vertex, const std::vector<Vertex> &ring);
 void averageOfPoints2D(const std::vector<Vertex> &points, Vertex &result);
-void directionBetweenTwoVectors(const Vector &from, const Vector &to, Vector &direction);
+void directionBetweenTwoVertices(const Vertex &from, const Vertex &to, Vector &direction);
 
 }
 
