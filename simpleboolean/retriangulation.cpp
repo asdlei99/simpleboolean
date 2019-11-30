@@ -217,6 +217,7 @@ bool ReTriangulation::attachClosedEdgeLoopsToOutter()
                 break;
             }
         }
+        qDebug() << "attached:" << attached;
         if (!attached)
             return false;
     }
@@ -241,43 +242,7 @@ void ReTriangulation::reTriangulate()
     if (!attachClosedEdgeLoopsToOutter()) {
         ++m_errors;
     } else {
-        for (size_t outter = 0; outter < m_recalculatedEdgeLoops.size(); ++outter) {
-            p2t::CDT *cdt = nullptr;
-            std::map<p2t::Point*, size_t> pointToIndexMap;
-            std::vector<std::vector<p2t::Point*>> polylines;
-            const auto &outterPoints2D = m_recalculatedEdgeLoopsVertices2D[outter];
-            {
-                std::vector<p2t::Point*> polyline;
-                for (size_t index = 0; index < outterPoints2D.size(); ++index) {
-                    const auto &it = outterPoints2D[index];
-                    p2t::Point *point = new p2t::Point(it.xyz[0], it.xyz[1]);
-                    const auto &vertexIndex = m_recalculatedEdgeLoops[outter][index];
-                    pointToIndexMap.insert(std::make_pair(point, vertexIndex));
-                    polyline.push_back(point);
-                }
-                cdt = new p2t::CDT(polyline);
-                polylines.push_back(polyline);
-            }
-            const auto &findInners = m_innerEdgeLoopsMap.find(outter);
-            if (findInners != m_innerEdgeLoopsMap.end()) {
-                for (const auto &inner: findInners->second) {
-                    const auto &innerPoints2D = m_closedEdgeLoopsVertices2D[inner];
-                    {
-                        std::vector<p2t::Point*> polyline;
-                        for (size_t index = 0; index < innerPoints2D.size(); ++index) {
-                            const auto &it = innerPoints2D[index];
-                            p2t::Point *point = new p2t::Point(it.xyz[0], it.xyz[1]);
-                            const auto &vertexIndex = m_closedEdgeLoops[inner][index];
-                            pointToIndexMap.insert(std::make_pair(point, vertexIndex));
-                            polyline.push_back(point);
-                        }
-                        cdt->AddHole(polyline);
-                        polylines.push_back(polyline);
-                    }
-                }
-            }
-            cdt->Triangulate();
-            const auto &triangles = cdt->GetTriangles();
+        auto fetchTriangulatedResult = [&](const std::vector<p2t::Triangle*> &triangles, const std::map<p2t::Point*, size_t> &pointToIndexMap) {
             std::vector<Face> newFaces;
             bool foundBadTriangle = false;
             for (const auto &it: triangles) {
@@ -299,30 +264,76 @@ void ReTriangulation::reTriangulate()
                 }
                 newFaces.push_back(face);
             }
-            
-            if (foundBadTriangle) {
-                if (findInners != m_innerEdgeLoopsMap.end()) {
-                    qDebug() << "Triangulate failed";
-                } else {
-                    std::vector<Face> oldWayTriangulatedFaces;
-                    const auto &ring = m_recalculatedEdgeLoops[outter];
-                    triangulate(m_vertices, oldWayTriangulatedFaces, ring);
-                    if (oldWayTriangulatedFaces.empty()) {
-                        qDebug() << "Fallback triangulate failed";
-                    } else {
-                        for (const auto &it: oldWayTriangulatedFaces)
-                            m_reTriangulatedTriangles.push_back(it);
+            if (foundBadTriangle)
+                return std::vector<Face>();
+            return newFaces;
+        };
+    
+        for (size_t outter = 0; outter < m_recalculatedEdgeLoops.size(); ++outter) {
+            p2t::CDT *cdt = nullptr;
+            std::map<p2t::Point*, size_t> pointToIndexMap;
+            std::vector<std::vector<p2t::Point*>> polylines;
+            std::vector<std::vector<p2t::Point*>> holePolylines;
+            const auto &outterPoints2D = m_recalculatedEdgeLoopsVertices2D[outter];
+            {
+                std::vector<p2t::Point*> polyline;
+                for (size_t index = 0; index < outterPoints2D.size(); ++index) {
+                    const auto &it = outterPoints2D[index];
+                    p2t::Point *point = new p2t::Point(it.xyz[0], it.xyz[1]);
+                    const auto &vertexIndex = m_recalculatedEdgeLoops[outter][index];
+                    pointToIndexMap.insert(std::make_pair(point, vertexIndex));
+                    polyline.push_back(point);
+                }
+                cdt = new p2t::CDT(polyline);
+                polylines.push_back(polyline);
+            }
+            const auto &findInners = m_innerEdgeLoopsMap.find(outter);
+            if (findInners != m_innerEdgeLoopsMap.end()) {
+                for (const auto &inner: findInners->second) {
+                    const auto &innerPoints2D = m_closedEdgeLoopsVertices2D[inner];
+                    {
+                        std::vector<p2t::Point*> polyline;
+                        std::vector<p2t::Point*> holePolyline;
+                        for (size_t index = 0; index < innerPoints2D.size(); ++index) {
+                            const auto &it = innerPoints2D[index];
+                            {
+                                p2t::Point *point = new p2t::Point(it.xyz[0], it.xyz[1]);
+                                const auto &vertexIndex = m_closedEdgeLoops[inner][index];
+                                pointToIndexMap.insert(std::make_pair(point, vertexIndex));
+                                polyline.push_back(point);
+                            }
+                            {
+                                p2t::Point *point = new p2t::Point(it.xyz[0], it.xyz[1]);
+                                const auto &vertexIndex = m_closedEdgeLoops[inner][index];
+                                pointToIndexMap.insert(std::make_pair(point, vertexIndex));
+                                holePolyline.push_back(point);
+                            }
+                        }
+
+                        cdt->AddHole(polyline);
+                        polylines.push_back(polyline);
+                        polylines.push_back(holePolyline);
+                        holePolylines.push_back(holePolyline);
                     }
                 }
-            } else {
-                for (const auto &it: newFaces)
-                    m_reTriangulatedTriangles.push_back(it);
             }
-            
-            // TODO: triangulate holes
-            // ... ...
+            cdt->Triangulate();
+            std::vector<Face> newFaces = fetchTriangulatedResult(cdt->GetTriangles(), pointToIndexMap);
+            for (const auto &it: newFaces)
+                m_reTriangulatedTriangles.push_back(it);
             
             delete cdt;
+            
+            for (size_t i = 0; i < holePolylines.size(); i++) {
+                std::vector<p2t::Point*> polyline = holePolylines[i];
+                p2t::CDT *holeCdt = new p2t::CDT(polyline);
+                holeCdt->Triangulate();
+                std::vector<Face> holeFaces = fetchTriangulatedResult(holeCdt->GetTriangles(), pointToIndexMap);
+                for (const auto &it: holeFaces)
+                    m_reTriangulatedTriangles.push_back(it);
+                delete holeCdt;
+            }
+            
             for (size_t i = 0; i < polylines.size(); i++) {
                 std::vector<p2t::Point*> poly = polylines[i];
                 FreeClear(poly);

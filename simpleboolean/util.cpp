@@ -46,8 +46,8 @@ void projectToPlane(const Vector &planeNormal, const Vertex &planeOrigin,
     for (const auto &it: points) {
         Vertex point2D;
         QVector3D direction = vertexToQVector3D(it) - origin;
-        point2D.xyz[0] = QVector3D::dotProduct(direction, xAxis);
-        point2D.xyz[1] = QVector3D::dotProduct(direction, yAxis);
+        point2D.xyz[0] = QVector3D::dotProduct(direction, xAxis) * 1000;
+        point2D.xyz[1] = QVector3D::dotProduct(direction, yAxis) * 1000;
         result.push_back(point2D);
     }
 }
