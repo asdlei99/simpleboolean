@@ -12,8 +12,8 @@
 namespace simpleboolean
 {
 
-size_t MeshCombiner::m_maxOctreeDepth = 3;
-size_t MeshCombiner::m_minIntersectsInOctant = 10;
+size_t MeshCombiner::m_maxOctreeDepth = 4;
+size_t MeshCombiner::m_minIntersectsInOctant = 5;
 int MeshCombiner::m_vertexToKeyMultiplyFactor = 1000;
 
 void MeshCombiner::setMeshes(const Mesh &first, const Mesh &second)
@@ -87,6 +87,8 @@ void MeshCombiner::searchPotentialIntersectedPairs(std::vector<std::pair<size_t,
             if (item.second.intersectWith(m_secondMeshFaceAABBs[i]))
                 secondGroupCandidates.push_back(i);
         }
+        /*
+        qDebug() << "octants:" << octants.size();
         printf("depth:%lu {%.2f,%.2f,%.2f -> %.2f,%.2f,%.2f} firstNum:%lu secondNum:%lu\r\n",
             item.first,
             item.second.lowerBound().xyz[0],
@@ -95,7 +97,7 @@ void MeshCombiner::searchPotentialIntersectedPairs(std::vector<std::pair<size_t,
             item.second.upperBound().xyz[0],
             item.second.upperBound().xyz[1],
             item.second.upperBound().xyz[2],
-            firstGroupCandidates.size(), secondGroupCandidates.size());
+            firstGroupCandidates.size(), secondGroupCandidates.size());*/
         if (0 == firstGroupCandidates.size() || 0 == secondGroupCandidates.size())
             continue;
         if ((firstGroupCandidates.size() < MeshCombiner::m_minIntersectsInOctant &&

@@ -1,6 +1,7 @@
 #include <simpleboolean/axisalignedboundingbox.h>
 #include <simpleboolean/util.h>
 #include <cmath>
+#include <QDebug>
 
 namespace simpleboolean
 {
@@ -73,6 +74,9 @@ bool AxisAlignedBoudingBox::makeOctree(std::vector<AxisAlignedBoudingBox> &octan
     if (isNull(radius.xyz[0]) || isNull(radius.xyz[1]) || isNull(radius.xyz[2]))
         return false;
     octants.resize(8);
+    qDebug() << "////////////////////////////////////////////";
+    qDebug() << lowerBound().xyz[0] << lowerBound().xyz[1] << lowerBound().xyz[2];
+    qDebug() << upperBound().xyz[0] << upperBound().xyz[1] << upperBound().xyz[2];
     for (size_t i = 0; i < octants.size(); ++i) {
         Vertex newOrigin = origin;
         newOrigin.xyz[0] += radius.xyz[0] * ((i & 4) ? 0.5f : -0.5f);
@@ -84,6 +88,9 @@ bool AxisAlignedBoudingBox::makeOctree(std::vector<AxisAlignedBoudingBox> &octan
         for (size_t j = 0; j < 3; ++j) {
             octants[i].upperBound().xyz[j] = newOrigin.xyz[j] + radius.xyz[j] * 0.5f;
         }
+        qDebug() << "[" << i << "]";
+        qDebug() << octants[i].lowerBound().xyz[0] << octants[i].lowerBound().xyz[1] << octants[i].lowerBound().xyz[2];
+        qDebug() << octants[i].upperBound().xyz[0] << octants[i].upperBound().xyz[1] << octants[i].upperBound().xyz[2];
     }
     return true;
 }
