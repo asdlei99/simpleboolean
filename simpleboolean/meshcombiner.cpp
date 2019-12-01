@@ -168,56 +168,7 @@ size_t MeshCombiner::newVertexToIndex(const Vertex &vertex)
 void MeshCombiner::groupEdgesToLoops(const std::vector<std::pair<size_t, size_t>> &edges,
         std::vector<std::vector<size_t>> &edgeLoops)
 {
-    std::map<size_t, std::vector<size_t>> linkMap;
-    for (const auto &pair: edges) {
-        linkMap[pair.first].push_back(pair.second);
-        linkMap[pair.second].push_back(pair.first);
-    }
-    std::vector<std::pair<size_t, size_t>> linkMapKeys;
-    for (const auto &it: linkMap) {
-        linkMapKeys.push_back({it.first, it.second.size()});
-    }
-    // This sort would make sure the endpoints sit in the front, it's very important for the following steps of finding open edge loop
-    std::sort(linkMapKeys.begin(), linkMapKeys.end(), [](const std::pair<size_t, size_t> &first,
-            const std::pair<size_t, size_t> &second) {
-        return first.second < second.second;
-    });
-    std::set<size_t> visited;
-    for (const auto &key: linkMapKeys) {
-        if (visited.find(key.first) != visited.end())
-            continue;
-        std::vector<size_t> loop;
-        size_t head = key.first;
-        visited.insert(head);
-        size_t next = head;
-        bool continueNext = true;
-        while (continueNext) {
-            loop.push_back(next);
-            const auto &findResult = linkMap.find(next);
-            if (findResult == linkMap.end())
-                break;
-            continueNext = false;
-            for (const auto &branch: findResult->second) {
-                if (visited.find(branch) != visited.end()) {
-                    if (branch == head && loop.size() > 2) {
-                        loop.push_back(branch);
-                        break;
-                    }
-                    continue;
-                }
-                next = branch;
-                visited.insert(next);
-                continueNext = true;
-                break;
-            }
-        }
-        for (const auto &it: visited) {
-            linkMap.erase(it);
-        }
-        if (loop.size() <= 1)
-            continue;
-        edgeLoops.push_back(loop);
-    }
+    EdgeLoop::buildEdgeLoopsFromDirectedEdges(edges, &edgeLoops, true, false);
 }
 
 void MeshCombiner::combine(Operation operation)
@@ -237,8 +188,17 @@ void MeshCombiner::combine(Operation operation)
                 newVertexToIndex(newEdge.first),
                 newVertexToIndex(newEdge.second)
             };
+            std::pair<size_t, size_t> newVertexOppositePair = {
+                newVertexPair.second,
+                newVertexPair.first
+            };
+            
             newEdgesPerTriangleInFirstMesh[pair.first].push_back(newVertexPair);
             newEdgesPerTriangleInSecondMesh[pair.second].push_back(newVertexPair);
+
+            newEdgesPerTriangleInFirstMesh[pair.first].push_back(newVertexOppositePair);
+            newEdgesPerTriangleInSecondMesh[pair.second].push_back(newVertexOppositePair);
+
             reTriangulatedFacesInFirstMesh.insert(pair.first);
             reTriangulatedFacesInSecondMesh.insert(pair.second);
         }

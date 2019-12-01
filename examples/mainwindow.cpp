@@ -10,8 +10,8 @@ MainWindow::MainWindow(void)
 {
     simpleboolean::Mesh mesh1;
     simpleboolean::Mesh mesh2;
-    simpleboolean::loadTriangulatedObj(mesh1, "/Users/jeremy/Repositories/simpleboolean/examples/a.obj");
-    simpleboolean::loadTriangulatedObj(mesh2, "/Users/jeremy/Repositories/simpleboolean/examples/b.obj");
+    simpleboolean::loadTriangulatedObj(mesh1, "/Users/jeremy/Repositories/simpleboolean/examples/addax.obj");
+    simpleboolean::loadTriangulatedObj(mesh2, "/Users/jeremy/Repositories/simpleboolean/examples/meerkat.obj");
     
     simpleboolean::MeshCombiner combiner;
     combiner.setMeshes(mesh1, mesh2);

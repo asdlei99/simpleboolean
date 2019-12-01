@@ -1,6 +1,7 @@
 #include <simpleboolean/retriangulation.h>
 #include <simpleboolean/util.h>
 #include <simpleboolean/triangulate.h>
+#include <simpleboolean/edgeloop.h>
 #include <thirdparty/poly2tri/poly2tri/poly2tri.h>
 #include <set>
 #include <vector>
@@ -25,6 +26,12 @@ const std::vector<Face> &ReTriangulation::getResult()
     return m_reTriangulatedTriangles;
 }
 
+void ReTriangulation::buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_t, size_t>> &edges,
+        std::vector<std::vector<size_t>> *edgeLoops)
+{
+    EdgeLoop::buildEdgeLoopsFromDirectedEdges(edges, edgeLoops, false, true);
+}
+
 void ReTriangulation::recalculateEdgeLoops()
 {
     std::vector<std::pair<size_t, size_t>> newEdges;
@@ -36,6 +43,11 @@ void ReTriangulation::recalculateEdgeLoops()
         if (edgeLoop.front() != edgeLoop.back()) {
             endpoints.insert(edgeLoop.front());
             endpoints.insert(edgeLoop.back());
+            
+            for (size_t i = 1; i < edgeLoop.size(); ++i) {
+                newEdges.push_back({edgeLoop[i - 1], edgeLoop[i]});
+                newEdges.push_back({edgeLoop[i], edgeLoop[i - 1]});
+            }
         } else {
             std::vector<size_t> newEdgeLoop; // Remove the head
             for (size_t i = 1; i < edgeLoop.size(); ++i)
@@ -73,7 +85,7 @@ void ReTriangulation::recalculateEdgeLoops()
             offsets.push_back({i, lengthOffset, firstHalf});
         }
         if (collapsed)
-            break;
+            continue;
         std::sort(offsets.begin(), offsets.end(), [](const std::tuple<size_t, float, float> &first,
                 const std::tuple<size_t, float, float> &second) {
             return std::get<1>(first) < std::get<1>(second);
@@ -95,60 +107,22 @@ void ReTriangulation::recalculateEdgeLoops()
         }
         points.push_back(stopCorner);
         
+        qDebug() << "Attach" << points << "to" << startCorner << "-" << stopCorner;
+        
         for (size_t i = 1; i < points.size(); ++i) {
             newEdges.push_back({points[i - 1], points[i]});
         }
     }
-
-    // Create edge loops from new edges
-    std::map<size_t, std::vector<size_t>> halfEdgeLinkMap;
-    for (const auto &edge: newEdges) {
-        halfEdgeLinkMap[edge.first].push_back(edge.second);
-    }
     for (size_t i = 0; i < 3; ++i) {
-        if (endpointsAttachedToEdges.find(i) != endpointsAttachedToEdges.end())
+        if (endpointsAttachedToEdges.find(i) != endpointsAttachedToEdges.end()) {
+            qDebug() << "Full triangle edge:" << m_triangle[i] << m_triangle[(i + 1) % 3];
             continue;
-        halfEdgeLinkMap[m_triangle[i]].push_back(m_triangle[(i + 1) % 3]);
-    }
-    std::set<std::pair<size_t, size_t>> visited;
-    while (!halfEdgeLinkMap.empty()) {
-        std::vector<size_t> loop;
-        size_t startVert = halfEdgeLinkMap.begin()->first;
-        size_t loopVert = startVert;
-        bool newEdgeLoopGenerated = false;
-        while (true) {
-            loop.push_back(loopVert);
-            auto findNext = halfEdgeLinkMap.find(loopVert);
-            if (findNext == halfEdgeLinkMap.end())
-                break;
-            bool foundNextVert = false;
-            for (auto it = findNext->second.begin(); it != findNext->second.end(); ++it) {
-                if (visited.find({loopVert, *it}) == visited.end()) {
-                    visited.insert({loopVert, *it});
-                    foundNextVert = true;
-                    loopVert = *it;
-                    findNext->second.erase(it);
-                    break;
-                }
-            }
-            if (!foundNextVert)
-                break;
-            if (loopVert == startVert) {
-                for (const auto &vert: loop) {
-                    auto findVert = halfEdgeLinkMap.find(vert);
-                    if (findVert == halfEdgeLinkMap.end())
-                        continue;
-                    if (findVert->second.empty())
-                        halfEdgeLinkMap.erase(findVert);
-                }
-                m_recalculatedEdgeLoops.push_back(loop);
-                newEdgeLoopGenerated = true;
-                break;
-            }
         }
-        if (!newEdgeLoopGenerated)
-            break;
+        qDebug() << "Empty triangle edge:" << m_triangle[i] << m_triangle[(i + 1) % 3];
+        newEdges.push_back({m_triangle[i], m_triangle[(i + 1) % 3]});
     }
+    
+    buildEdgeLoopsFromDirectedEdges(newEdges, &m_recalculatedEdgeLoops);
 }
 
 void ReTriangulation::convertVerticesTo2D()
@@ -290,6 +264,7 @@ void ReTriangulation::reTriangulate()
             const auto &findInners = m_innerEdgeLoopsMap.find(outter);
             if (findInners != m_innerEdgeLoopsMap.end()) {
                 for (const auto &inner: findInners->second) {
+                    qDebug() << "Inner edge loop:" << m_closedEdgeLoops[inner];
                     const auto &innerPoints2D = m_closedEdgeLoopsVertices2D[inner];
                     {
                         std::vector<p2t::Point*> polyline;

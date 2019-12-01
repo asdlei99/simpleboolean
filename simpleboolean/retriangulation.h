@@ -15,6 +15,8 @@ public:
         const std::vector<std::vector<size_t>> &edgeLoops);
     void reTriangulate();
     const std::vector<Face> &getResult();
+    static void buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_t, size_t>> &edges,
+        std::vector<std::vector<size_t>> *edgeLoops);
     
 private:
     std::vector<Vertex> m_vertices;
