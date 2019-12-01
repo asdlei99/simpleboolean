@@ -287,12 +287,12 @@ void MeshCombiner::combine(Operation operation)
     }
     std::vector<SubBlock> subBlocks;
     SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, subBlocks);
-    m_debugFirstMeshReTriangulated.vertices = m_newVertices;
-    m_debugFirstMeshReTriangulated.faces.clear();
-    qDebug() << "m_newVertices:" << m_newVertices.size();
-    for (const auto &it: subBlocks.front().faces) {
-        qDebug() << "subBlocks faces:" << it.indices[0] << it.indices[1] << it.indices[2];
-        m_debugFirstMeshReTriangulated.faces.push_back(it);
+    m_debugSubBlocks.resize(subBlocks.size());
+    for (size_t i = 0; i < subBlocks.size(); ++i) {
+        m_debugSubBlocks[i].vertices = m_newVertices;
+        for (const auto &it: subBlocks[i].faces) {
+            m_debugSubBlocks[i].faces.push_back(Face {{it[0], it[1], it[2]}});
+        }
     }
     
     std::vector<Operation> operations;
