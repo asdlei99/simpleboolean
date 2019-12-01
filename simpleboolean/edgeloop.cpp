@@ -25,9 +25,6 @@ void EdgeLoop::merge(const std::vector<std::vector<size_t>> &sourceEdgeLoops,
         }
     }
     buildEdgeLoopsFromDirectedEdges(edges, targetEdgeLoops, false, false);
-    //qDebug() << "==================================";
-    //qDebug() << "sourceEdgeLoops:" << sourceEdgeLoops;
-    //qDebug() << "targetEdgeLoops:" << *targetEdgeLoops;
 }
 
 void EdgeLoop::buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_t, size_t>> &edges,

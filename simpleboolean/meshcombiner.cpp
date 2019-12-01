@@ -253,6 +253,12 @@ void MeshCombiner::combine(Operation operation)
         std::vector<std::vector<size_t>> mergedEdgeLoops;
         EdgeLoop::merge(edgeLoops, &mergedEdgeLoops);
         SubSurface::createSubSurfaces(mergedEdgeLoops, triangles, firstSubSurfaces);
+        for (const auto &subSurface: firstSubSurfaces) {
+            qDebug() << "============== First:" << subSurface.edgeLoopName << "===============";
+            qDebug() << (subSurface.isFrontSide ? "Front:" : "Back:");
+            for (const auto &face: subSurface.faces)
+                qDebug() << "face:" << face.indices[0] << face.indices[1] << face.indices[2];
+        }
     }
     {
         std::vector<std::vector<size_t>> edgeLoops;
@@ -266,6 +272,12 @@ void MeshCombiner::combine(Operation operation)
         std::vector<std::vector<size_t>> mergedEdgeLoops;
         EdgeLoop::merge(edgeLoops, &mergedEdgeLoops);
         SubSurface::createSubSurfaces(mergedEdgeLoops, triangles, secondSubSurfaces);
+        for (const auto &subSurface: secondSubSurfaces) {
+            qDebug() << "============== Second:" << subSurface.edgeLoopName << "===============";
+            qDebug() << (subSurface.isFrontSide ? "Front:" : "Back:");
+            for (const auto &face: subSurface.faces)
+                qDebug() << "face:" << face.indices[0] << face.indices[1] << face.indices[2];
+        }
     }
     std::vector<SubBlock> subBlocks;
     SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, subBlocks);
