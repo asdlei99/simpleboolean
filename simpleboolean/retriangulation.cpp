@@ -288,7 +288,7 @@ void ReTriangulation::reTriangulate()
             const auto &findInners = m_innerEdgeLoopsMap.find(outter);
             if (findInners != m_innerEdgeLoopsMap.end()) {
                 for (const auto &inner: findInners->second) {
-                    qDebug() << "Inner edge loop:" << m_closedEdgeLoops[inner];
+                    //qDebug() << "Inner edge loop:" << m_closedEdgeLoops[inner];
                     const auto &innerPoints2D = m_closedEdgeLoopsVertices2D[inner];
                     {
                         std::vector<p2t::Point*> polyline;

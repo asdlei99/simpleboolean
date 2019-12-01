@@ -8,7 +8,8 @@ namespace simpleboolean
 class EdgeLoop
 {
 public:
-    static void merge(std::vector<std::vector<size_t>> &edgeLoops);
+    static void merge(const std::vector<std::vector<size_t>> &sourceEdgeLoops,
+        std::vector<std::vector<size_t>> *targetEdgeLoops);
     static void buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_t, size_t>> &edges,
         std::vector<std::vector<size_t>> *edgeLoops,
         bool allowOpenEdgeLoop=false,

@@ -7,9 +7,27 @@
 namespace simpleboolean
 {
 
-void EdgeLoop::merge(std::vector<std::vector<size_t>> &edgeLoops)
+void EdgeLoop::merge(const std::vector<std::vector<size_t>> &sourceEdgeLoops,
+        std::vector<std::vector<size_t>> *targetEdgeLoops)
 {
-    // TODO:
+    std::vector<std::pair<size_t, size_t>> edges;
+    for (size_t m = 0; m < sourceEdgeLoops.size(); ++m) {
+        const auto &source = sourceEdgeLoops[m];
+        if (source.front() == source.back()) {
+            auto newEdgeLoop = source;
+            newEdgeLoop.pop_back();
+            targetEdgeLoops->push_back(newEdgeLoop);
+            continue;
+        }
+        for (size_t i = 1; i < source.size(); ++i) {
+            edges.push_back(std::make_pair(source[i - 1], source[i]));
+            edges.push_back(std::make_pair(source[i], source[i - 1]));
+        }
+    }
+    buildEdgeLoopsFromDirectedEdges(edges, targetEdgeLoops, false, false);
+    //qDebug() << "==================================";
+    //qDebug() << "sourceEdgeLoops:" << sourceEdgeLoops;
+    //qDebug() << "targetEdgeLoops:" << *targetEdgeLoops;
 }
 
 void EdgeLoop::buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_t, size_t>> &edges,
@@ -17,8 +35,8 @@ void EdgeLoop::buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_
         bool allowOpenEdgeLoop,
         bool allowOppositeEdgeLoop)
 {
-    qDebug() << "================== allowOpenEdgeLoop:" << allowOpenEdgeLoop << "==================";
-    qDebug() << "edges:" << edges;
+    //qDebug() << "================== allowOpenEdgeLoop:" << allowOpenEdgeLoop << "==================";
+    //qDebug() << "edges:" << edges;
 
     std::map<size_t, std::vector<size_t>> nodeNeighborMap;
     std::set<std::pair<size_t, size_t>> edgeSet;
@@ -126,16 +144,16 @@ void EdgeLoop::buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_
             }
         } else {
             if (edgeLoop.size() < 4) {
-                qDebug() << "Invalid edge loop size:" << edgeLoop.size() << "loop:" << edgeLoop;
+                //qDebug() << "Invalid edge loop size:" << edgeLoop.size() << "loop:" << edgeLoop;
                 continue;
             }
             if (edgeLoop.front() != edgeLoop.back()) {
-                qDebug() << "Invalid edge loop:" << edgeLoop;
+                //qDebug() << "Invalid edge loop:" << edgeLoop;
                 continue;
             }
             edgeLoop.pop_back();
         }
-        qDebug() << "Good edgeLoop:" << edgeLoop;
+        //qDebug() << "Good edgeLoop:" << edgeLoop;
         edgeLoops->push_back(edgeLoop);
     }
 }

@@ -245,25 +245,27 @@ void MeshCombiner::combine(Operation operation)
         std::vector<std::vector<size_t>> edgeLoops;
         std::vector<Face> triangles;
         doReTriangulation(&m_firstMesh, newEdgesPerTriangleInFirstMesh, triangles, edgeLoops);
-        //addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, triangles);
+        addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, triangles);
         
         m_debugFirstMeshReTriangulated.faces = triangles;
         m_debugFirstMeshReTriangulated.vertices = m_newVertices;
         
-        EdgeLoop::merge(edgeLoops);
-        SubSurface::createSubSurfaces(edgeLoops, triangles, firstSubSurfaces);
+        std::vector<std::vector<size_t>> mergedEdgeLoops;
+        EdgeLoop::merge(edgeLoops, &mergedEdgeLoops);
+        SubSurface::createSubSurfaces(mergedEdgeLoops, triangles, firstSubSurfaces);
     }
     {
         std::vector<std::vector<size_t>> edgeLoops;
         std::vector<Face> triangles;
         doReTriangulation(&m_secondMesh, newEdgesPerTriangleInSecondMesh, triangles, edgeLoops);
-        //addUnIntersectedFaces(&m_secondMesh, reTriangulatedFacesInSecondMesh, triangles);
+        addUnIntersectedFaces(&m_secondMesh, reTriangulatedFacesInSecondMesh, triangles);
         
         m_debugSecondMeshReTriangulated.faces = triangles;
         m_debugSecondMeshReTriangulated.vertices = m_newVertices;
         
-        EdgeLoop::merge(edgeLoops);
-        SubSurface::createSubSurfaces(edgeLoops, triangles, secondSubSurfaces);
+        std::vector<std::vector<size_t>> mergedEdgeLoops;
+        EdgeLoop::merge(edgeLoops, &mergedEdgeLoops);
+        SubSurface::createSubSurfaces(mergedEdgeLoops, triangles, secondSubSurfaces);
     }
     std::vector<SubBlock> subBlocks;
     SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, subBlocks);
