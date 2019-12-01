@@ -137,6 +137,28 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         subSurfaces.push_back(frontSurface);
         subSurfaces.push_back(backSurface);
     }
+    
+    std::set<std::array<size_t, 3>> privateFaces;
+    for (const auto &it: subSurfaces) {
+        if (!it.isSharedByOthers) {
+            for (const auto &face: it.faces) {
+                privateFaces.insert(std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}});
+            }
+        }
+    }
+    
+    for (auto &it: subSurfaces) {
+        if (it.isSharedByOthers) {
+            std::vector<Face> newFaces;
+            newFaces.reserve(it.faces.size());
+            for (const auto &face: it.faces) {
+                if (privateFaces.find(std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}) != privateFaces.end())
+                    continue;
+                newFaces.push_back(face);
+            }
+            it.faces = newFaces;
+        }
+    }
 }
 
 }
