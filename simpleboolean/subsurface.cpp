@@ -2,6 +2,8 @@
 #include <QStringList>
 #include <set>
 #include <queue>
+#include <array>
+#include <QDebug>
 
 namespace simpleboolean
 {
@@ -37,12 +39,24 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
             halfEdges.insert({edge, m});
         }
     }
+    
+    std::map<std::pair<size_t, size_t>, size_t> edgeToLoopMap;
+    for (size_t m = 0; m < edgeLoops.size(); ++m) {
+        const auto &edgeLoop = edgeLoops[m];
+        for (size_t i = 0; i < edgeLoop.size(); ++i) {
+            size_t j = (i + 1) % edgeLoop.size();
+            edgeToLoopMap.insert({std::make_pair(edgeLoop[i], edgeLoop[j]), m});
+            edgeToLoopMap.insert({std::make_pair(edgeLoop[j], edgeLoop[i]), m});
+        }
+    }
 
-    for (const auto &edgeLoop: edgeLoops) {
+    for (size_t edgeLoopIndex = 0; edgeLoopIndex < edgeLoops.size(); ++edgeLoopIndex) {
+        const auto &edgeLoop = edgeLoops[edgeLoopIndex];
         if (edgeLoop.size() < 2)
             continue;
         
         std::set<size_t> visitedFaces;
+        std::set<std::pair<size_t, size_t>> borderEdges;
         
         bool nameReversed = false;
         QString edgeLoopName = createEdgeLoopName(edgeLoop, &nameReversed);
@@ -66,8 +80,12 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
             frontSurface.faces.push_back(face);
             for (size_t m = 0; m < 3; ++m) {
                 size_t n = (m + 1) % 3;
-                auto findNeighbor = halfEdges.find(std::make_pair(face.indices[m], face.indices[n]));
-                if (findNeighbor != halfEdges.end())
+                auto edge = std::make_pair(face.indices[n], face.indices[m]);
+                auto findEdgeLoop = edgeToLoopMap.find(edge);
+                if (findEdgeLoop != edgeToLoopMap.end() && findEdgeLoop->second != edgeLoopIndex)
+                    frontSurface.isSharedByOthers = true;
+                auto findNeighbor = halfEdges.find(edge);
+                if (findNeighbor != halfEdges.end() && borderEdges.find(edge) == borderEdges.end())
                     frontTriangleIndices.push(findNeighbor->second);
             }
         };
@@ -80,8 +98,12 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
             backSurface.faces.push_back(face);
             for (size_t m = 0; m < 3; ++m) {
                 size_t n = (m + 1) % 3;
-                auto findNeighbor = halfEdges.find(std::make_pair(face.indices[m], face.indices[n]));
-                if (findNeighbor != halfEdges.end())
+                auto edge = std::make_pair(face.indices[n], face.indices[m]);
+                auto findEdgeLoop = edgeToLoopMap.find(edge);
+                if (findEdgeLoop != edgeToLoopMap.end() && findEdgeLoop->second != edgeLoopIndex)
+                    backSurface.isSharedByOthers = true;
+                auto findNeighbor = halfEdges.find(edge);
+                if (findNeighbor != halfEdges.end() && borderEdges.find(edge) == borderEdges.end())
                     backTriangleIndices.push(findNeighbor->second);
             }
         };
@@ -89,13 +111,15 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         for (size_t i = 0; i < edgeLoop.size(); ++i) {
             size_t j = (i + 1) % edgeLoop.size();
             auto edge = std::make_pair(edgeLoop[i], edgeLoop[j]);
+            borderEdges.insert(edge);
             auto findTriangle = halfEdges.find(edge);
             if (findTriangle != halfEdges.end())
-                addFrontTriangle(findTriangle->second);
+                frontTriangleIndices.push(findTriangle->second);
             auto oppositeEdge = std::make_pair(edge.second, edge.first);
+            borderEdges.insert(oppositeEdge);
             auto findOppositeTriangle = halfEdges.find(oppositeEdge);
             if (findOppositeTriangle != halfEdges.end())
-                addBackTriangle(findOppositeTriangle->second);
+                backTriangleIndices.push(findOppositeTriangle->second);
         }
         
         while (!frontTriangleIndices.empty()) {

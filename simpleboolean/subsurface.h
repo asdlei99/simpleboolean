@@ -14,6 +14,7 @@ public:
     QString edgeLoopName;
     std::vector<Face> faces;
     bool isFrontSide = true;
+    bool isSharedByOthers = false;
     
     static QString createEdgeLoopName(const std::vector<size_t> &edgeLoop, bool *nameReversed);
     static void createSubSurfaces(const std::vector<std::vector<size_t>> &edgeLoops,

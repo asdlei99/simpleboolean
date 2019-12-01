@@ -1,0 +1,24 @@
+DUST3D 1.0 xml 0000000132
+<?xml version="1.0" encoding="UTF-8"?>
+<ds3>
+    <model name="model.xml" offset="0" size="1302"/>
+</ds3>
+<?xml version="1.0" encoding="UTF-8"?>
+<canvas originX="0.668558" originY="0.440409" originZ="1.06896" rigType="None">
+    <nodes>
+        <node id="{6c667277-d764-4e6a-850f-a60ee1ac3f65}" partId="{2a607969-122c-493d-a852-9cebdfaf4fae}" radius="0.111237" x="0.667424" y="0.443814" z="1.06782"/>
+        <node id="{fc83cf55-cf1d-453d-b545-a15cc04b74c4}" partId="{201f459d-5975-4450-a56a-8d4bdfb9b92c}" radius="0.0976163" x="0.668558" y="0.440409" z="1.06896"/>
+    </nodes>
+    <edges/>
+    <parts>
+        <part chamfered="false" disabled="false" id="{201f459d-5975-4450-a56a-8d4bdfb9b92c}" locked="false" rounded="false" subdived="false" visible="true" xMirrored="false"/>
+        <part chamfered="false" disabled="false" id="{2a607969-122c-493d-a852-9cebdfaf4fae}" locked="false" rounded="false" subdived="true" visible="true" xMirrored="false"/>
+    </parts>
+    <components>
+        <component combineMode="Normal" expanded="false" id="{434601fd-3c4d-4a62-b599-06683e903d37}" linkData="{201f459d-5975-4450-a56a-8d4bdfb9b92c}" linkDataType="partId"/>
+        <component combineMode="Normal" expanded="false" id="{74946816-6efa-4c9c-9452-5317b63b643c}" linkData="{2a607969-122c-493d-a852-9cebdfaf4fae}" linkDataType="partId"/>
+    </components>
+    <materials/>
+    <poses/>
+    <motions/>
+</canvas>
