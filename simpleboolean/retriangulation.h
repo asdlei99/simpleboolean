@@ -35,6 +35,8 @@ private:
     void convertVerticesTo2D();
     void convertEdgeLoopsToVertices2D();
     bool attachClosedEdgeLoopsToOutter();
+    void unifyFaceDirections(const std::vector<Face> &existedFaces,
+        std::vector<Face> *newFaces);
 };
   
 }

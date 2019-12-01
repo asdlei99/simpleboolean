@@ -107,7 +107,7 @@ void ReTriangulation::recalculateEdgeLoops()
         }
         points.push_back(stopCorner);
         
-        qDebug() << "Attach" << points << "to" << startCorner << "-" << stopCorner;
+        //qDebug() << "Attach" << points << "to" << startCorner << "-" << stopCorner;
         
         for (size_t i = 1; i < points.size(); ++i) {
             newEdges.push_back({points[i - 1], points[i]});
@@ -115,10 +115,10 @@ void ReTriangulation::recalculateEdgeLoops()
     }
     for (size_t i = 0; i < 3; ++i) {
         if (endpointsAttachedToEdges.find(i) != endpointsAttachedToEdges.end()) {
-            qDebug() << "Full triangle edge:" << m_triangle[i] << m_triangle[(i + 1) % 3];
+            //qDebug() << "Full triangle edge:" << m_triangle[i] << m_triangle[(i + 1) % 3];
             continue;
         }
-        qDebug() << "Empty triangle edge:" << m_triangle[i] << m_triangle[(i + 1) % 3];
+        //qDebug() << "Empty triangle edge:" << m_triangle[i] << m_triangle[(i + 1) % 3];
         newEdges.push_back({m_triangle[i], m_triangle[(i + 1) % 3]});
     }
     
@@ -191,7 +191,7 @@ bool ReTriangulation::attachClosedEdgeLoopsToOutter()
                 break;
             }
         }
-        qDebug() << "attached:" << attached;
+        //qDebug() << "attached:" << attached;
         if (!attached)
             return false;
     }
@@ -206,6 +206,30 @@ template <class C> void FreeClear( C & cntr )
         delete * it;
     }
     cntr.clear();
+}
+
+void ReTriangulation::unifyFaceDirections(const std::vector<Face> &existedFaces,
+        std::vector<Face> *newFaces)
+{
+    if (existedFaces.empty())
+        return;
+    std::set<std::pair<size_t, size_t>> halfEdges;
+    for (const auto &face: existedFaces) {
+        for (size_t i = 0; i < 3; ++i) {
+            size_t j = (i + 1) % 3;
+            halfEdges.insert(std::make_pair(face.indices[i], face.indices[j]));
+        }
+    }
+    for (const auto &face: *newFaces) {
+        for (size_t i = 0; i < 3; ++i) {
+            size_t j = (i + 1) % 3;
+            if (halfEdges.find(std::make_pair(face.indices[i], face.indices[j])) != halfEdges.end()) {
+                for (auto &newFace: *newFaces)
+                    std::reverse(newFace.indices, newFace.indices + 3);
+                return;
+            }
+        }
+    }
 }
 
 void ReTriangulation::reTriangulate()
@@ -293,22 +317,25 @@ void ReTriangulation::reTriangulate()
                 }
             }
             cdt->Triangulate();
-            std::vector<Face> newFaces = fetchTriangulatedResult(cdt->GetTriangles(), pointToIndexMap);
-            for (const auto &it: newFaces)
+            std::vector<Face> outterFaces = fetchTriangulatedResult(cdt->GetTriangles(), pointToIndexMap);
+            for (const auto &it: outterFaces)
                 m_reTriangulatedTriangles.push_back(it);
             
             delete cdt;
             
+            std::vector<Face> holeTriangles;
             for (size_t i = 0; i < holePolylines.size(); i++) {
                 std::vector<p2t::Point*> polyline = holePolylines[i];
                 p2t::CDT *holeCdt = new p2t::CDT(polyline);
                 holeCdt->Triangulate();
                 std::vector<Face> holeFaces = fetchTriangulatedResult(holeCdt->GetTriangles(), pointToIndexMap);
+                unifyFaceDirections(outterFaces, &holeFaces);
                 for (const auto &it: holeFaces)
                     m_reTriangulatedTriangles.push_back(it);
+                holeTriangles.insert(holeTriangles.end(), holeFaces.begin(), holeFaces.end());
                 delete holeCdt;
             }
-            
+
             for (size_t i = 0; i < polylines.size(); i++) {
                 std::vector<p2t::Point*> poly = polylines[i];
                 FreeClear(poly);
