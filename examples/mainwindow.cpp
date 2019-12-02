@@ -10,12 +10,36 @@ MainWindow::MainWindow(void)
 {
     simpleboolean::Mesh mesh1;
     simpleboolean::Mesh mesh2;
-    simpleboolean::loadTriangulatedObj(mesh1, "/Users/jeremy/Repositories/simpleboolean/examples/a.obj");
-    simpleboolean::loadTriangulatedObj(mesh2, "/Users/jeremy/Repositories/simpleboolean/examples/b.obj");
+    simpleboolean::loadTriangulatedObj(mesh1, "/Users/jeremy/Repositories/simpleboolean/examples/addax.obj");
+    simpleboolean::loadTriangulatedObj(mesh2, "/Users/jeremy/Repositories/simpleboolean/examples/meerkat.obj");
     
     simpleboolean::MeshCombiner combiner;
     combiner.setMeshes(mesh1, mesh2);
-    combiner.combine(simpleboolean::Operation::Union);
+    combiner.combine();
+    
+    {
+        simpleboolean::Mesh mesh;
+        combiner.getResult(simpleboolean::Type::Union, &mesh);
+        exportTriangulatedObj(mesh, "/Users/jeremy/Desktop/debug-union.obj");
+    }
+    
+    {
+        simpleboolean::Mesh mesh;
+        combiner.getResult(simpleboolean::Type::Intersection, &mesh);
+        exportTriangulatedObj(mesh, "/Users/jeremy/Desktop/debug-intersection.obj");
+    }
+    
+    {
+        simpleboolean::Mesh mesh;
+        combiner.getResult(simpleboolean::Type::Subtraction, &mesh);
+        exportTriangulatedObj(mesh, "/Users/jeremy/Desktop/debug-subtraction.obj");
+    }
+    
+    {
+        simpleboolean::Mesh mesh;
+        combiner.getResult(simpleboolean::Type::InversedSubtraction, &mesh);
+        exportTriangulatedObj(mesh, "/Users/jeremy/Desktop/debug-inversedSubtraction.obj");
+    }
     
     for (size_t i = 0; i < combiner.m_debugSubBlocks.size(); ++i) {
         const auto &subBlock = combiner.m_debugSubBlocks[i];

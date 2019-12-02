@@ -1,5 +1,4 @@
 #include <simpleboolean/subblock.h>
-#include <map>
 
 namespace simpleboolean
 {
@@ -30,7 +29,7 @@ void SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
         for (const auto &first: firstSubSurfaces) {
             if (isFirstSharedByOthers == first.isSharedByOthers) {
                 for (const auto &face: first.faces)
-                    subBlock.faces.insert(std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}});
+                    subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, 0});
                 const SubSurface *subSurface = nullptr;
                 if (oppositePhase) {
                     if (first.isFrontSide) {
@@ -47,7 +46,7 @@ void SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
                 }
                 if (nullptr != subSurface) {
                     for (const auto &face: subSurface->faces)
-                        subBlock.faces.insert(std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}});
+                        subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, 1});
                 }
             }
         }
@@ -55,8 +54,8 @@ void SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
     };
     
     addSubBlock(true, true);
-    addSubBlock(true, false);
     addSubBlock(false, true);
+    addSubBlock(true, false);
     addSubBlock(false, false);
 }
 

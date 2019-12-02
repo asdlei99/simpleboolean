@@ -13,8 +13,8 @@ class MeshCombiner
 {
 public:
     void setMeshes(const Mesh &first, const Mesh &second);
-    void combine(Operation operation);
-    const Mesh &getResult();
+    void combine();
+    void getResult(Type booleanType, Mesh *result);
     
     // Debug only
     Mesh m_debugFirstMeshReTriangulated;
@@ -30,10 +30,8 @@ private:
     size_t newVertexToIndex(const Vertex &vertex);
     void groupEdgesToLoops(const std::vector<std::pair<size_t, size_t>> &edges,
         std::vector<std::vector<size_t>> &edgeLoops);
-    void subBlockToMesh(const SubBlock &subBlock, Mesh &mesh);
     Mesh m_firstMesh;
     Mesh m_secondMesh;
-    Mesh m_resultMesh;
     static size_t m_maxOctreeDepth;
     static size_t m_minIntersectsInOctant;
     static int m_vertexToKeyMultiplyFactor;
@@ -41,6 +39,8 @@ private:
     std::vector<AxisAlignedBoudingBox> m_secondMeshFaceAABBs;
     std::vector<Vertex> m_newVertices;
     std::map<std::tuple<int, int, int>, size_t> m_newVertexToIndexMap;
+    std::vector<SubBlock> m_subBlocks;
+    std::vector<int> m_indicesToSubBlocks;
 };
 
 }

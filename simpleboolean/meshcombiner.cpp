@@ -171,7 +171,7 @@ void MeshCombiner::groupEdgesToLoops(const std::vector<std::pair<size_t, size_t>
     EdgeLoop::buildEdgeLoopsFromDirectedEdges(edges, &edgeLoops, true, false);
 }
 
-void MeshCombiner::combine(Operation operation)
+void MeshCombiner::combine()
 {
     std::vector<std::pair<size_t, size_t>> potentailPairs;
     searchPotentialIntersectedPairs(potentailPairs);
@@ -285,34 +285,42 @@ void MeshCombiner::combine(Operation operation)
         //    }
         //}
     }
-    std::vector<SubBlock> subBlocks;
-    SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, subBlocks);
-    m_debugSubBlocks.resize(subBlocks.size());
-    for (size_t i = 0; i < subBlocks.size(); ++i) {
-        m_debugSubBlocks[i].vertices = m_newVertices;
-        for (const auto &it: subBlocks[i].faces) {
-            m_debugSubBlocks[i].faces.push_back(Face {{it[0], it[1], it[2]}});
-        }
-    }
     
-    std::vector<Operation> operations;
-    Distinguish::distinguish(subBlocks, operations);
-    for (size_t i = 0; i < operations.size(); ++i) {
-        if (operations[i] == operation) {
-            subBlockToMesh(subBlocks[i], m_resultMesh);
-            break;
+    SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, m_subBlocks);
+    
+    Distinguish::distinguish(m_subBlocks, m_newVertices, &m_indicesToSubBlocks);
+    
+    m_debugSubBlocks.resize(m_subBlocks.size());
+    for (size_t i = 0; i < m_subBlocks.size(); ++i) {
+        m_debugSubBlocks[i].vertices = m_newVertices;
+        for (const auto &it: m_subBlocks[i].faces) {
+            if (-1 == it.second)
+                m_debugSubBlocks[i].faces.push_back(Face {{it.first[2], it.first[1], it.first[0]}});
+            else
+                m_debugSubBlocks[i].faces.push_back(Face {{it.first[0], it.first[1], it.first[2]}});
         }
     }
 }
 
-void MeshCombiner::subBlockToMesh(const SubBlock &subBlock, Mesh &mesh)
+void MeshCombiner::getResult(Type booleanType, Mesh *result)
 {
-    // TODO:
-}
-
-const Mesh &MeshCombiner::getResult()
-{
-    return m_resultMesh;
+    size_t index = (size_t)booleanType;
+    if (index >= m_indicesToSubBlocks.size())
+        return;
+    
+    int subBlockIndex = m_indicesToSubBlocks[index];
+    if (-1 == subBlockIndex)
+        return;
+    
+    const auto &subBlock = m_subBlocks[subBlockIndex];
+    result->vertices = m_newVertices;
+    result->faces.reserve(subBlock.faces.size());
+    for (const auto &it: subBlock.faces) {
+        if (-1 == it.second)
+            result->faces.push_back(Face {{it.first[2], it.first[1], it.first[0]}});
+        else
+            result->faces.push_back(Face {{it.first[0], it.first[1], it.first[2]}});
+    }
 }
 
 }

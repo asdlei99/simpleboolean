@@ -5,18 +5,20 @@
 namespace simpleboolean
 {
 
-enum class Operation
+enum class Type
 {
-    Union,
-    Intersection,
-    Subtraction
+    Union = 0,
+    Intersection = 1,
+    Subtraction = 2,
+    InversedSubtraction = 3
 };
 
 class Distinguish
 {
 public:
-    static void distinguish(const std::vector<SubBlock> &subBlocks,
-        std::vector<Operation> &operations);
+    static void distinguish(std::vector<SubBlock> &subBlocks,
+        const std::vector<Vertex> &vertices,
+        std::vector<int> *indicesToSubBlocks);
 };
 
 }
