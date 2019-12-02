@@ -1,4 +1,5 @@
 #include <simpleboolean/subblock.h>
+#include <QDebug>
 
 namespace simpleboolean
 {
@@ -7,56 +8,54 @@ void SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
         const std::vector<SubSurface> &secondSubSurfaces,
         std::vector<SubBlock> &subBlocks)
 {
-    std::pair<std::map<QString, std::pair<const SubSurface *, const SubSurface *>>,
-        std::map<QString, std::pair<const SubSurface *, const SubSurface *>>> subSurfaceMap;
-    for (size_t i = 0; i < firstSubSurfaces.size(); ++i) {
-        const auto &subSurface = firstSubSurfaces[i];
-        if (subSurface.isFrontSide)
-            subSurfaceMap.first[subSurface.edgeLoopName].first = &firstSubSurfaces[i];
-        else
-            subSurfaceMap.first[subSurface.edgeLoopName].second = &firstSubSurfaces[i];
+    struct SubSurfaceLink
+    {
+        const SubSurface *subSurface = nullptr;
+        int sourceMesh = -1;
+        bool untested = true;
+    };
+    std::map<QString, std::vector<SubSurfaceLink>> subSurfaceMap;
+    for (const auto &subSurface: firstSubSurfaces) {
+        SubSurfaceLink link;
+        link.subSurface = &subSurface;
+        link.sourceMesh = 0;
+        subSurfaceMap[subSurface.edgeLoopName].push_back(link);
     }
-    for (size_t i = 0; i < secondSubSurfaces.size(); ++i) {
-        const auto &subSurface = secondSubSurfaces[i];
-        if (subSurface.isFrontSide)
-            subSurfaceMap.second[subSurface.edgeLoopName].first = &secondSubSurfaces[i];
-        else
-            subSurfaceMap.second[subSurface.edgeLoopName].second = &secondSubSurfaces[i];
+    for (const auto &subSurface: secondSubSurfaces) {
+        SubSurfaceLink link;
+        link.subSurface = &subSurface;
+        link.sourceMesh = 1;
+        subSurfaceMap[subSurface.edgeLoopName].push_back(link);
     }
     
-    auto addSubBlock = [&](bool isFirstSharedByOthers, bool oppositePhase) {
-        SubBlock subBlock;
-        for (const auto &first: firstSubSurfaces) {
-            if (isFirstSharedByOthers == first.isSharedByOthers) {
-                for (const auto &face: first.faces)
-                    subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, 0});
-                const SubSurface *subSurface = nullptr;
-                if (oppositePhase) {
-                    if (first.isFrontSide) {
-                        subSurface = subSurfaceMap.second[first.edgeLoopName].second;
-                    } else {
-                        subSurface = subSurfaceMap.second[first.edgeLoopName].first;
-                    }
-                } else {
-                    if (first.isFrontSide) {
-                        subSurface = subSurfaceMap.second[first.edgeLoopName].first;
-                    } else {
-                        subSurface = subSurfaceMap.second[first.edgeLoopName].second;
-                    }
-                }
-                if (nullptr != subSurface) {
-                    for (const auto &face: subSurface->faces)
-                        subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, 1});
+    for (auto &itWithSameName: subSurfaceMap) {
+        for (auto &it: itWithSameName.second) {
+            if (!it.untested)
+                continue;
+            SubBlock subBlock;
+            it.untested = false;
+            for (const auto &face: it.subSurface->faces)
+                subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, it.sourceMesh});
+            for (const auto &edgeLoopName: it.subSurface->ownerNames) {
+                for (auto &condidate: subSurfaceMap[edgeLoopName]) {
+                    if (!condidate.untested)
+                        continue;
+                    if (condidate.subSurface->isSharedByOthers)
+                        continue;
+                    if (condidate.sourceMesh == it.sourceMesh)
+                        continue;
+                    if (condidate.subSurface->isFrontSide != it.subSurface->isFrontSide)
+                        continue;
+                    condidate.untested = false;
+                    for (const auto &face: condidate.subSurface->faces)
+                        subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, condidate.sourceMesh});
                 }
             }
+            subBlocks.push_back(subBlock);
         }
-        subBlocks.push_back(subBlock);
-    };
+    }
     
-    addSubBlock(true, true);
-    addSubBlock(false, true);
-    addSubBlock(true, false);
-    addSubBlock(false, false);
+    qDebug() << "subBlocks:" << subBlocks.size();
 }
 
 }

@@ -4,6 +4,7 @@
 #include <simpleboolean/meshdatatype.h>
 #include <QString>
 #include <map>
+#include <set>
 
 namespace simpleboolean
 {
@@ -15,6 +16,7 @@ public:
     std::vector<Face> faces;
     bool isFrontSide = true;
     bool isSharedByOthers = false;
+    std::set<QString> ownerNames;
     
     static QString createEdgeLoopName(const std::vector<size_t> &edgeLoop, bool *nameReversed);
     static void createSubSurfaces(const std::vector<std::vector<size_t>> &edgeLoops,

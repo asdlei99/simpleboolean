@@ -49,6 +49,14 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
             edgeToLoopMap.insert({std::make_pair(edgeLoop[j], edgeLoop[i]), m});
         }
     }
+    
+    std::vector<std::pair<QString, bool>> edgeLoopNames(edgeLoops.size());
+    for (size_t edgeLoopIndex = 0; edgeLoopIndex < edgeLoops.size(); ++edgeLoopIndex) {
+        const auto &edgeLoop = edgeLoops[edgeLoopIndex];
+        bool nameReversed = false;
+        QString edgeLoopName = createEdgeLoopName(edgeLoop, &nameReversed);
+        edgeLoopNames[edgeLoopIndex] = std::make_pair(edgeLoopName, nameReversed);
+    }
 
     for (size_t edgeLoopIndex = 0; edgeLoopIndex < edgeLoops.size(); ++edgeLoopIndex) {
         const auto &edgeLoop = edgeLoops[edgeLoopIndex];
@@ -56,18 +64,18 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
             continue;
         
         std::set<size_t> visitedFaces;
-        std::set<std::pair<size_t, size_t>> borderEdges;
         
-        bool nameReversed = false;
-        QString edgeLoopName = createEdgeLoopName(edgeLoop, &nameReversed);
+        const auto &edgeLoopName = edgeLoopNames[edgeLoopIndex];
         
         SubSurface frontSurface;
-        frontSurface.edgeLoopName = edgeLoopName;
-        frontSurface.isFrontSide = !nameReversed;
+        frontSurface.edgeLoopName = edgeLoopName.first;
+        frontSurface.isFrontSide = !edgeLoopName.second;
+        frontSurface.ownerNames.insert(edgeLoopName.first);
         
         SubSurface backSurface;
-        backSurface.edgeLoopName = edgeLoopName;
-        backSurface.isFrontSide = nameReversed;
+        backSurface.edgeLoopName = edgeLoopName.first;
+        backSurface.isFrontSide = edgeLoopName.second;
+        backSurface.ownerNames.insert(edgeLoopName.first);
         
         std::queue<size_t> frontTriangleIndices;
         std::queue<size_t> backTriangleIndices;
@@ -82,10 +90,15 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
                 size_t n = (m + 1) % 3;
                 auto edge = std::make_pair(face.indices[n], face.indices[m]);
                 auto findEdgeLoop = edgeToLoopMap.find(edge);
-                if (findEdgeLoop != edgeToLoopMap.end() && findEdgeLoop->second != edgeLoopIndex)
-                    frontSurface.isSharedByOthers = true;
+                if (findEdgeLoop != edgeToLoopMap.end()) {
+                    if (findEdgeLoop->second != edgeLoopIndex) {
+                        frontSurface.ownerNames.insert(edgeLoopNames[findEdgeLoop->second].first);
+                        frontSurface.isSharedByOthers = true;
+                    }
+                    continue;
+                }
                 auto findNeighbor = halfEdges.find(edge);
-                if (findNeighbor != halfEdges.end() && borderEdges.find(edge) == borderEdges.end())
+                if (findNeighbor != halfEdges.end())
                     frontTriangleIndices.push(findNeighbor->second);
             }
         };
@@ -100,10 +113,15 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
                 size_t n = (m + 1) % 3;
                 auto edge = std::make_pair(face.indices[n], face.indices[m]);
                 auto findEdgeLoop = edgeToLoopMap.find(edge);
-                if (findEdgeLoop != edgeToLoopMap.end() && findEdgeLoop->second != edgeLoopIndex)
-                    backSurface.isSharedByOthers = true;
+                if (findEdgeLoop != edgeToLoopMap.end()) {
+                    if (findEdgeLoop->second != edgeLoopIndex) {
+                        backSurface.ownerNames.insert(edgeLoopNames[findEdgeLoop->second].first);
+                        backSurface.isSharedByOthers = true;
+                    }
+                    continue;
+                }
                 auto findNeighbor = halfEdges.find(edge);
-                if (findNeighbor != halfEdges.end() && borderEdges.find(edge) == borderEdges.end())
+                if (findNeighbor != halfEdges.end())
                     backTriangleIndices.push(findNeighbor->second);
             }
         };
@@ -111,12 +129,10 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         for (size_t i = 0; i < edgeLoop.size(); ++i) {
             size_t j = (i + 1) % edgeLoop.size();
             auto edge = std::make_pair(edgeLoop[i], edgeLoop[j]);
-            borderEdges.insert(edge);
             auto findTriangle = halfEdges.find(edge);
             if (findTriangle != halfEdges.end())
                 frontTriangleIndices.push(findTriangle->second);
             auto oppositeEdge = std::make_pair(edge.second, edge.first);
-            borderEdges.insert(oppositeEdge);
             auto findOppositeTriangle = halfEdges.find(oppositeEdge);
             if (findOppositeTriangle != halfEdges.end())
                 backTriangleIndices.push(findOppositeTriangle->second);
@@ -138,27 +154,12 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         subSurfaces.push_back(backSurface);
     }
     
-    std::set<std::array<size_t, 3>> privateFaces;
-    for (const auto &it: subSurfaces) {
-        if (!it.isSharedByOthers) {
-            for (const auto &face: it.faces) {
-                privateFaces.insert(std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}});
-            }
-        }
-    }
-    
-    for (auto &it: subSurfaces) {
-        if (it.isSharedByOthers) {
-            std::vector<Face> newFaces;
-            newFaces.reserve(it.faces.size());
-            for (const auto &face: it.faces) {
-                if (privateFaces.find(std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}) != privateFaces.end())
-                    continue;
-                newFaces.push_back(face);
-            }
-            it.faces = newFaces;
-        }
-    }
+    //for (size_t i = 0; i < subSurfaces.size(); ++i) {
+    //    const auto &subSurface = subSurfaces[i];
+    //    qDebug() << "============== subSurface[" << i << "]" << (subSurface.isSharedByOthers ? "Public" : "Private") << "==================";
+    //    for (const auto &it: subSurface.ownerNames)
+    //        qDebug() << "owner:" << it;
+    //}
 }
 
 }
