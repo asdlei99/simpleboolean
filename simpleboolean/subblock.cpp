@@ -1,5 +1,6 @@
 #include <simpleboolean/subblock.h>
 #include <QDebug>
+#include <queue>
 
 namespace simpleboolean
 {
@@ -12,7 +13,6 @@ void SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
     {
         const SubSurface *subSurface = nullptr;
         int sourceMesh = -1;
-        bool untested = true;
     };
     std::map<QString, std::vector<SubSurfaceLink>> subSurfaceMap;
     for (const auto &subSurface: firstSubSurfaces) {
@@ -30,28 +30,50 @@ void SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
     
     for (auto &itWithSameName: subSurfaceMap) {
         for (auto &it: itWithSameName.second) {
-            if (!it.untested)
+            if (it.subSurface->isSharedByOthers)
                 continue;
+            std::queue<SubSurfaceLink *> links;
+            links.push(&it);
             SubBlock subBlock;
-            it.untested = false;
-            for (const auto &face: it.subSurface->faces)
-                subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, it.sourceMesh});
-            for (const auto &edgeLoopName: it.subSurface->ownerNames) {
-                for (auto &condidate: subSurfaceMap[edgeLoopName]) {
-                    if (!condidate.untested)
-                        continue;
-                    if (condidate.subSurface->isSharedByOthers)
-                        continue;
-                    if (condidate.sourceMesh == it.sourceMesh)
-                        continue;
-                    if (condidate.subSurface->isFrontSide != it.subSurface->isFrontSide)
-                        continue;
-                    condidate.untested = false;
-                    for (const auto &face: condidate.subSurface->faces)
-                        subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, condidate.sourceMesh});
+            std::set<std::pair<QString, int>> cycles;
+            std::set<SubSurfaceLink *> visited;
+            while (!links.empty()) {
+                SubSurfaceLink *link = links.front();
+                links.pop();
+                if (visited.find(link) != visited.end())
+                    continue;
+                visited.insert(link);
+                auto &fromSubSurface = *link->subSurface;
+                bool cycleExisted = false;
+                for (const auto &condidateEdgeLoopName: fromSubSurface.ownerNames) {
+                    if (cycles.find(std::make_pair(condidateEdgeLoopName,
+                            link->sourceMesh)) != cycles.end()) {
+                        cycleExisted = true;
+                        break;
+                    }
+                }
+                if (!cycleExisted) {
+                    for (const auto &edgeLoopName: fromSubSurface.ownerNames) {
+                        cycles.insert(std::make_pair(edgeLoopName, link->sourceMesh));
+                    }
+                    for (const auto &face: fromSubSurface.faces) {
+                        subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, it.sourceMesh});
+                    }
+                }
+                for (const auto &edgeLoopName: fromSubSurface.ownerNames) {
+                    for (auto &condidate: subSurfaceMap[edgeLoopName]) {
+                        if (visited.find(&condidate) != visited.end())
+                            continue;
+                        if (condidate.sourceMesh == link->sourceMesh)
+                            continue;
+                        //if (condidate.subSurface->isFrontSide != fromSubSurface.isFrontSide)
+                        //    continue;
+                        links.push(&condidate);
+                    }
                 }
             }
-            subBlocks.push_back(subBlock);
+            if (!subBlock.faces.empty())
+                subBlocks.push_back(subBlock);
         }
     }
     
