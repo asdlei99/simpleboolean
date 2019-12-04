@@ -16,9 +16,9 @@ public:
     std::vector<Face> faces;
     bool isFrontSide = true;
     bool isSharedByOthers = false;
-    std::set<QString> ownerNames;
+    std::set<std::pair<QString, bool>> ownerNames;
     
-    static QString createEdgeLoopName(const std::vector<size_t> &edgeLoop, bool *nameReversed);
+    static QString createEdgeLoopName(const std::vector<size_t> &edgeLoop);
     static void createSubSurfaces(const std::vector<std::vector<size_t>> &edgeLoops,
         const std::vector<Face> &triangles,
         std::vector<SubSurface> &subSurfaces);

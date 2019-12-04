@@ -8,19 +8,19 @@
 namespace simpleboolean
 {
 
-QString SubSurface::createEdgeLoopName(const std::vector<size_t> &edgeLoop, bool *nameReversed)
+QString SubSurface::createEdgeLoopName(const std::vector<size_t> &edgeLoop)
 {
     QStringList stringList;
     stringList.reserve(edgeLoop.size());
+    /*
     std::set<std::pair<size_t, size_t>> originalHalfEdges;
     for (size_t i = 0; i < edgeLoop.size(); ++i) {
         size_t j = (i + 1) % edgeLoop.size();
         originalHalfEdges.insert({edgeLoop[i], edgeLoop[j]});
     }
+    */
     auto sortedEdgeLoop = edgeLoop;
     std::sort(sortedEdgeLoop.begin(), sortedEdgeLoop.end());
-    *nameReversed = originalHalfEdges.find(
-        std::make_pair(sortedEdgeLoop[0], sortedEdgeLoop[1])) == originalHalfEdges.end();
     for (const auto &it: sortedEdgeLoop)
         stringList.append(QString::number(it));
     return stringList.join(",");
@@ -40,22 +40,20 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         }
     }
     
-    std::map<std::pair<size_t, size_t>, size_t> edgeToLoopMap;
+    std::map<std::pair<size_t, size_t>, std::pair<size_t, bool>> edgeToLoopMap;
     for (size_t m = 0; m < edgeLoops.size(); ++m) {
         const auto &edgeLoop = edgeLoops[m];
         for (size_t i = 0; i < edgeLoop.size(); ++i) {
             size_t j = (i + 1) % edgeLoop.size();
-            edgeToLoopMap.insert({std::make_pair(edgeLoop[i], edgeLoop[j]), m});
-            edgeToLoopMap.insert({std::make_pair(edgeLoop[j], edgeLoop[i]), m});
+            edgeToLoopMap.insert({std::make_pair(edgeLoop[i], edgeLoop[j]), std::make_pair(m, true)});
+            edgeToLoopMap.insert({std::make_pair(edgeLoop[j], edgeLoop[i]), std::make_pair(m, false)});
         }
     }
     
-    std::vector<std::pair<QString, bool>> edgeLoopNames(edgeLoops.size());
+    std::vector<QString> edgeLoopNames(edgeLoops.size());
     for (size_t edgeLoopIndex = 0; edgeLoopIndex < edgeLoops.size(); ++edgeLoopIndex) {
         const auto &edgeLoop = edgeLoops[edgeLoopIndex];
-        bool nameReversed = false;
-        QString edgeLoopName = createEdgeLoopName(edgeLoop, &nameReversed);
-        edgeLoopNames[edgeLoopIndex] = std::make_pair(edgeLoopName, nameReversed);
+        edgeLoopNames[edgeLoopIndex] = createEdgeLoopName(edgeLoop);
     }
 
     for (size_t edgeLoopIndex = 0; edgeLoopIndex < edgeLoops.size(); ++edgeLoopIndex) {
@@ -68,14 +66,14 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         const auto &edgeLoopName = edgeLoopNames[edgeLoopIndex];
         
         SubSurface frontSurface;
-        frontSurface.edgeLoopName = edgeLoopName.first;
-        frontSurface.isFrontSide = !edgeLoopName.second;
-        frontSurface.ownerNames.insert(edgeLoopName.first);
+        frontSurface.edgeLoopName = edgeLoopName;
+        frontSurface.isFrontSide = true;
+        frontSurface.ownerNames.insert(std::make_pair(frontSurface.edgeLoopName, frontSurface.isFrontSide));
         
         SubSurface backSurface;
-        backSurface.edgeLoopName = edgeLoopName.first;
-        backSurface.isFrontSide = edgeLoopName.second;
-        backSurface.ownerNames.insert(edgeLoopName.first);
+        backSurface.edgeLoopName = edgeLoopName;
+        backSurface.isFrontSide = false;
+        backSurface.ownerNames.insert(std::make_pair(backSurface.edgeLoopName, backSurface.isFrontSide));
         
         std::queue<size_t> frontTriangleIndices;
         std::queue<size_t> backTriangleIndices;
@@ -91,8 +89,9 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
                 auto edge = std::make_pair(face.indices[n], face.indices[m]);
                 auto findEdgeLoop = edgeToLoopMap.find(edge);
                 if (findEdgeLoop != edgeToLoopMap.end()) {
-                    if (findEdgeLoop->second != edgeLoopIndex) {
-                        frontSurface.ownerNames.insert(edgeLoopNames[findEdgeLoop->second].first);
+                    if (findEdgeLoop->second.first != edgeLoopIndex) {
+                        const auto &edgeLoopName = edgeLoopNames[findEdgeLoop->second.first];
+                        frontSurface.ownerNames.insert(std::make_pair(edgeLoopName, !findEdgeLoop->second.second));
                         frontSurface.isSharedByOthers = true;
                     }
                     continue;
@@ -114,8 +113,9 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
                 auto edge = std::make_pair(face.indices[n], face.indices[m]);
                 auto findEdgeLoop = edgeToLoopMap.find(edge);
                 if (findEdgeLoop != edgeToLoopMap.end()) {
-                    if (findEdgeLoop->second != edgeLoopIndex) {
-                        backSurface.ownerNames.insert(edgeLoopNames[findEdgeLoop->second].first);
+                    if (findEdgeLoop->second.first != edgeLoopIndex) {
+                        const auto &edgeLoopName = edgeLoopNames[findEdgeLoop->second.first];
+                        backSurface.ownerNames.insert(std::make_pair(edgeLoopName, !findEdgeLoop->second.second));
                         backSurface.isSharedByOthers = true;
                     }
                     continue;
@@ -154,6 +154,8 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         subSurfaces.push_back(backSurface);
     }
     
+    qDebug() << "edgeLoops:" << edgeLoops.size();
+    qDebug() << "subSurfaces:" << subSurfaces.size();
     //for (size_t i = 0; i < subSurfaces.size(); ++i) {
     //    const auto &subSurface = subSurfaces[i];
     //    qDebug() << "============== subSurface[" << i << "]" << (subSurface.isSharedByOthers ? "Public" : "Private") << "==================";
