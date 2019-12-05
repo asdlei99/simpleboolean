@@ -12,13 +12,6 @@ QString SubSurface::createEdgeLoopName(const std::vector<size_t> &edgeLoop)
 {
     QStringList stringList;
     stringList.reserve(edgeLoop.size());
-    /*
-    std::set<std::pair<size_t, size_t>> originalHalfEdges;
-    for (size_t i = 0; i < edgeLoop.size(); ++i) {
-        size_t j = (i + 1) % edgeLoop.size();
-        originalHalfEdges.insert({edgeLoop[i], edgeLoop[j]});
-    }
-    */
     auto sortedEdgeLoop = edgeLoop;
     std::sort(sortedEdgeLoop.begin(), sortedEdgeLoop.end());
     for (const auto &it: sortedEdgeLoop)

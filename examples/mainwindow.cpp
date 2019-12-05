@@ -17,7 +17,6 @@ MainWindow::MainWindow(void)
     combiner.setMeshes(mesh1, mesh2);
     combiner.combine();
     
-    /*
     {
         simpleboolean::Mesh mesh;
         combiner.getResult(simpleboolean::Type::Union, &mesh);
@@ -41,7 +40,6 @@ MainWindow::MainWindow(void)
         combiner.getResult(simpleboolean::Type::InversedSubtraction, &mesh);
         exportTriangulatedObj(mesh, "/Users/jeremy/Desktop/debug-inversedSubtraction.obj");
     }
-    */
     
     simpleboolean::Mesh subBlocksMesh;
     for (size_t i = 0; i < combiner.m_debugSubBlocks.size(); ++i) {

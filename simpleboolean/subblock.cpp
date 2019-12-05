@@ -136,6 +136,8 @@ void SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
             for (const auto &face: fromSubSurface.faces) {
                 subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, link->sourceMesh});
             }
+            subBlock.cycles[link->subSurface->edgeLoopName].insert(std::make_pair(link->sourceMesh,
+                link->subSurface->isFrontSide));
         }
         return subBlock;
     };

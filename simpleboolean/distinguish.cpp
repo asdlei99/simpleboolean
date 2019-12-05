@@ -71,6 +71,31 @@ void Distinguish::distinguish(std::vector<SubBlock> &subBlocks,
     if (subBlocks.size() != 4)
         return;
     
+    std::vector<size_t> unionOrIntersectionSubBlocks;
+    std::vector<size_t> subtractionSubBlocks;
+    for (size_t subBlockIndex = 0; subBlockIndex < subBlocks.size(); ++subBlockIndex) {
+        const auto &subBlock = subBlocks[subBlockIndex];
+        for (const auto &cycle: subBlock.cycles) {
+            auto firstSide = cycle.second.find(0);
+            if (firstSide == cycle.second.end())
+                continue;
+            auto secondSide = cycle.second.find(1);
+            if (secondSide == cycle.second.end())
+                continue;
+            if (firstSide->second == secondSide->second) {
+                subtractionSubBlocks.push_back(subBlockIndex);
+            } else {
+                unionOrIntersectionSubBlocks.push_back(subBlockIndex);
+            }
+            break;
+        }
+    }
+    
+    if (2 != unionOrIntersectionSubBlocks.size() ||
+            2 != subtractionSubBlocks.size()) {
+        return;
+    }
+    
     auto calculateCenter = [&](const SubBlock &subBlock) {
         QVector3D sumOfPositions;
         size_t num = 0;
@@ -108,7 +133,7 @@ void Distinguish::distinguish(std::vector<SubBlock> &subBlocks,
     std::vector<float> volumes(2);
     for (size_t i = 0; i < 2; ++i) {
         auto &boundingBox = boundingBoxs[i];
-        resolveBoundingBox(subBlocks[i], vertices, &boundingBox.first, &boundingBox.second);
+        resolveBoundingBox(subBlocks[unionOrIntersectionSubBlocks[i]], vertices, &boundingBox.first, &boundingBox.second);
         volumes[i] = std::sqrt(std::pow(boundingBox.first.x() - boundingBox.second.x(), 2) +
             std::pow(boundingBox.first.y() - boundingBox.second.y(), 2) +
             std::pow(boundingBox.first.z() - boundingBox.second.z(), 2));
@@ -120,58 +145,59 @@ void Distinguish::distinguish(std::vector<SubBlock> &subBlocks,
     int inversedSubtractionIndex = -1;
     
     if (qFuzzyIsNull(volumes[0] - volumes[1])) {
-        float firstMaxRadius2 = calculateMaxRadius2(subBlocks[0]);
-        float secondMaxRadius2 = calculateMaxRadius2(subBlocks[1]);
+        float firstMaxRadius2 = calculateMaxRadius2(subBlocks[unionOrIntersectionSubBlocks[0]]);
+        float secondMaxRadius2 = calculateMaxRadius2(subBlocks[unionOrIntersectionSubBlocks[1]]);
         if (firstMaxRadius2 > secondMaxRadius2) {
-            unionIndex = 0;
-            intersectionIndex = 1;
+            unionIndex = unionOrIntersectionSubBlocks[0];
+            intersectionIndex = unionOrIntersectionSubBlocks[1];
         } else {
-            unionIndex = 1;
-            intersectionIndex = 0;
+            unionIndex = unionOrIntersectionSubBlocks[1];
+            intersectionIndex = unionOrIntersectionSubBlocks[0];
         }
     } else if (volumes[0] > volumes[1]) {
-        unionIndex = 0;
-        intersectionIndex = 1;
+        unionIndex = unionOrIntersectionSubBlocks[0];
+        intersectionIndex = unionOrIntersectionSubBlocks[1];
     } else {
-        unionIndex = 1;
-        intersectionIndex = 0;
+        unionIndex = unionOrIntersectionSubBlocks[1];
+        intersectionIndex = unionOrIntersectionSubBlocks[0];
     }
     
     const auto &outterSubBlock = subBlocks[unionIndex];
     const auto &innerSubBlock = subBlocks[intersectionIndex];
-    for (const auto &it: subBlocks[2].faces) {
+    for (const auto &it: subBlocks[subtractionSubBlocks[0]].faces) {
         auto findOutter = outterSubBlock.faces.find(it.first);
         if (findOutter != outterSubBlock.faces.end()) {
             if (0 == findOutter->second) {
-                subtractionIndex = 2;
-                inversedSubtractionIndex = 3;
+                subtractionIndex = subtractionSubBlocks[0];
+                inversedSubtractionIndex = subtractionSubBlocks[1];
             } else {
-                subtractionIndex = 3;
-                inversedSubtractionIndex = 2;
+                subtractionIndex = subtractionSubBlocks[1];
+                inversedSubtractionIndex = subtractionSubBlocks[0];
             }
             break;
         }
         auto findInner = innerSubBlock.faces.find(it.first);
         if (findInner != innerSubBlock.faces.end()) {
             if (0 == findInner->second) {
-                subtractionIndex = 3;
-                inversedSubtractionIndex = 2;
+                subtractionIndex = subtractionSubBlocks[1];
+                inversedSubtractionIndex = subtractionSubBlocks[0];
             } else {
-                subtractionIndex = 2;
-                inversedSubtractionIndex = 3;
+                subtractionIndex = subtractionSubBlocks[0];
+                inversedSubtractionIndex = subtractionSubBlocks[1];
             }
             break;
         }
     }
     
-    for (size_t i = 2; i < 4; ++i) {
-        auto &subBlock = subBlocks[i];
+    auto reverseSubBlockFaces = [&](SubBlock &subBlock) {
         for (auto &face: subBlock.faces) {
             if (innerSubBlock.faces.find(face.first) == innerSubBlock.faces.end())
                 continue;
             face.second = -1; //-1 means this face should reverse
         }
-    }
+    };
+    reverseSubBlockFaces(subBlocks[subtractionSubBlocks[0]]);
+    reverseSubBlockFaces(subBlocks[subtractionSubBlocks[1]]);
     
     (*indicesToSubBlocks)[(int)Type::Union] = unionIndex;
     (*indicesToSubBlocks)[(int)Type::Intersection] = intersectionIndex;

@@ -3,6 +3,8 @@
 #include <simpleboolean/subsurface.h>
 #include <array>
 #include <map>
+#include <QString>
+#include <vector>
 
 namespace simpleboolean
 {
@@ -11,6 +13,7 @@ class SubBlock
 {
 public:
     std::map<std::array<size_t, 3>, int> faces;
+    std::map<QString, std::map<int, bool>> cycles;
 
     static void createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
         const std::vector<SubSurface> &secondSubSurfaces,
