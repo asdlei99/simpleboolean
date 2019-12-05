@@ -14,6 +14,8 @@ public:
         std::vector<std::vector<size_t>> *edgeLoops,
         bool allowOpenEdgeLoop=false,
         bool allowOppositeEdgeLoop=true);
+    static void unifyDirection(const std::vector<std::vector<size_t>> &reference,
+        std::vector<std::vector<size_t>> *target);
 };
 
 }

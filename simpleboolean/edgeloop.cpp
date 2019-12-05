@@ -155,4 +155,34 @@ void EdgeLoop::buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_
     }
 }
 
+void EdgeLoop::unifyDirection(const std::vector<std::vector<size_t>> &reference,
+        std::vector<std::vector<size_t>> *target)
+{
+    std::vector<std::set<std::pair<size_t, size_t>>> referenceHalfEdges;
+    for (const auto &it: reference) {
+        std::set<std::pair<size_t, size_t>> halfEdges;
+        for (size_t i = 0; i < it.size(); ++i) {
+            size_t j = (i + 1) % it.size();
+            halfEdges.insert(std::make_pair(it[i], it[j]));
+        }
+        referenceHalfEdges.push_back(halfEdges);
+    }
+    
+    auto isHalfEdgeInReference = [&](const std::pair<size_t, size_t> &halfEdge) {
+        for (const auto &it: referenceHalfEdges) {
+            if (it.find(halfEdge) != it.end())
+                return true;
+        }
+        return false;
+    };
+    
+    for (auto &it: *target) {
+        if (it.size() < 2)
+            return;
+        if (isHalfEdgeInReference(std::make_pair(it[0], it[1])))
+            continue;
+        std::reverse(it.begin(), it.end());
+    }
+}
+
 }

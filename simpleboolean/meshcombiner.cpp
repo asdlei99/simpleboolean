@@ -241,6 +241,8 @@ void MeshCombiner::combine()
     };
     std::vector<SubSurface> firstSubSurfaces;
     std::vector<SubSurface> secondSubSurfaces;
+    std::vector<std::vector<size_t>> firstMergedEdgeLoops;
+    std::vector<std::vector<size_t>> secondMergedEdgeLoops;
     {
         std::vector<std::vector<size_t>> edgeLoops;
         std::vector<Face> triangles;
@@ -250,9 +252,9 @@ void MeshCombiner::combine()
         m_debugFirstMeshReTriangulated.faces = triangles;
         m_debugFirstMeshReTriangulated.vertices = m_newVertices;
         
-        std::vector<std::vector<size_t>> mergedEdgeLoops;
-        EdgeLoop::merge(edgeLoops, &mergedEdgeLoops);
-        SubSurface::createSubSurfaces(mergedEdgeLoops, triangles, firstSubSurfaces);
+        EdgeLoop::merge(edgeLoops, &firstMergedEdgeLoops);
+        qDebug() << "First mergedEdgeLoops:" << firstMergedEdgeLoops;
+        SubSurface::createSubSurfaces(firstMergedEdgeLoops, triangles, firstSubSurfaces);
         
         //for (const auto &subSurface: firstSubSurfaces) {
         //    qDebug() << "============== First:" << subSurface.edgeLoopName << "===============";
@@ -272,9 +274,10 @@ void MeshCombiner::combine()
         m_debugSecondMeshReTriangulated.faces = triangles;
         m_debugSecondMeshReTriangulated.vertices = m_newVertices;
         
-        std::vector<std::vector<size_t>> mergedEdgeLoops;
-        EdgeLoop::merge(edgeLoops, &mergedEdgeLoops);
-        SubSurface::createSubSurfaces(mergedEdgeLoops, triangles, secondSubSurfaces);
+        EdgeLoop::merge(edgeLoops, &secondMergedEdgeLoops);
+        EdgeLoop::unifyDirection(firstMergedEdgeLoops, &secondMergedEdgeLoops);
+        qDebug() << "Second mergedEdgeLoops:" << secondMergedEdgeLoops;
+        SubSurface::createSubSurfaces(secondMergedEdgeLoops, triangles, secondSubSurfaces);
         
         //for (const auto &subSurface: secondSubSurfaces) {
         //    qDebug() << "============== Second:" << subSurface.edgeLoopName << "===============";
