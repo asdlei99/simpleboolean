@@ -29,6 +29,7 @@ win32 {
 	QMAKE_CXXFLAGS += /O2
 }
 
+INCLUDEPATH += ./
 INCLUDEPATH += ../
 INCLUDEPATH += ../thirdparty/moller97
 INCLUDEPATH += ../thirdparty/poly2tri/poly2tri
@@ -88,6 +89,41 @@ HEADERS += thirdparty/poly2tri/poly2tri/common/utils.h
 HEADERS += thirdparty/poly2tri/poly2tri/poly2tri.h
 
 SOURCES += main.cpp
+
+SOURCES += cgalmesh.cpp
+HEADERS += cgalmesh.h
+
+SOURCES += positionkey.cpp
+HEADERS += positionkey.h
+
+SOURCES += misc.cpp
+HEADERS += misc.h
+
+macx {
+	GMP_LIBNAME = gmp
+	MPFR_LIBNAME = mpfr
+	CGAL_LIBNAME = cgal
+	BOOST_INCLUDEDIR = /usr/local/opt/boost/include
+	CGAL_INCLUDEDIR = /usr/local/opt/cgal/include
+	CGAL_BUILDINCLUDEDIR = /usr/local/opt/cgal/include
+	CGAL_LIBDIR = /usr/local/opt/cgal/lib
+	GMP_INCLUDEDIR = /usr/local/opt/gmp/include
+	GMP_LIBDIR = /usr/local/opt/gmp/lib
+	MPFR_INCLUDEDIR = /usr/local/opt/mpfr/include
+	MPFR_LIBDIR = /usr/local/opt/mpfr/lib
+}
+
+INCLUDEPATH += $$BOOST_INCLUDEDIR
+
+INCLUDEPATH += $$GMP_INCLUDEDIR
+LIBS += -L$$GMP_LIBDIR -l$$GMP_LIBNAME
+
+INCLUDEPATH += $$MPFR_INCLUDEDIR
+LIBS += -L$$MPFR_LIBDIR -l$$MPFR_LIBNAME
+
+INCLUDEPATH += $$CGAL_INCLUDEDIR
+INCLUDEPATH += $$CGAL_BUILDINCLUDEDIR
+LIBS += -L$$CGAL_LIBDIR -l$$CGAL_LIBNAME
 
 QMAKE_CXXFLAGS += -std=c++11
 

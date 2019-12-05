@@ -79,14 +79,19 @@ bool AxisAlignedBoudingBox::makeOctree(std::vector<AxisAlignedBoudingBox> &octan
     //qDebug() << upperBound().xyz[0] << upperBound().xyz[1] << upperBound().xyz[2];
     for (size_t i = 0; i < octants.size(); ++i) {
         Vertex newOrigin = origin;
-        newOrigin.xyz[0] += radius.xyz[0] * ((i & 4) ? 0.5f : -0.5f);
-        newOrigin.xyz[1] += radius.xyz[1] * ((i & 2) ? 0.5f : -0.5f);
-        newOrigin.xyz[2] += radius.xyz[2] * ((i & 1) ? 0.5f : -0.5f);
+        std::vector<float> halfRadius = {
+            radius.xyz[0] * 0.5f,
+            radius.xyz[1] * 0.5f,
+            radius.xyz[2] * 0.5f,
+        };
+        newOrigin.xyz[0] += ((i & 4) ? halfRadius[0] : -halfRadius[0]);
+        newOrigin.xyz[1] += ((i & 2) ? halfRadius[1] : -halfRadius[1]);
+        newOrigin.xyz[2] += ((i & 1) ? halfRadius[2] : -halfRadius[2]);
         for (size_t j = 0; j < 3; ++j) {
-            octants[i].lowerBound().xyz[j] = newOrigin.xyz[j] - radius.xyz[j] * 0.5f;
+            octants[i].lowerBound().xyz[j] = newOrigin.xyz[j] - halfRadius[j];
         }
         for (size_t j = 0; j < 3; ++j) {
-            octants[i].upperBound().xyz[j] = newOrigin.xyz[j] + radius.xyz[j] * 0.5f;
+            octants[i].upperBound().xyz[j] = newOrigin.xyz[j] + halfRadius[j];
         }
         //qDebug() << "[" << i << "]";
         //qDebug() << octants[i].lowerBound().xyz[0] << octants[i].lowerBound().xyz[1] << octants[i].lowerBound().xyz[2];
