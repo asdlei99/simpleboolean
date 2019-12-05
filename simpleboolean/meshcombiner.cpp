@@ -171,7 +171,7 @@ void MeshCombiner::groupEdgesToLoops(const std::vector<std::pair<size_t, size_t>
     EdgeLoop::buildEdgeLoopsFromDirectedEdges(edges, &edgeLoops, true, false);
 }
 
-void MeshCombiner::combine()
+bool MeshCombiner::combine()
 {
     std::vector<std::pair<size_t, size_t>> potentailPairs;
     searchPotentialIntersectedPairs(potentailPairs);
@@ -248,61 +248,25 @@ void MeshCombiner::combine()
         std::vector<Face> triangles;
         doReTriangulation(&m_firstMesh, newEdgesPerTriangleInFirstMesh, triangles, edgeLoops);
         addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, triangles);
-        
-        m_debugFirstMeshReTriangulated.faces = triangles;
-        m_debugFirstMeshReTriangulated.vertices = m_newVertices;
-        
         EdgeLoop::merge(edgeLoops, &firstMergedEdgeLoops);
-        qDebug() << "First mergedEdgeLoops:" << firstMergedEdgeLoops;
         SubSurface::createSubSurfaces(firstMergedEdgeLoops, triangles, firstSubSurfaces);
-        
-        //for (const auto &subSurface: firstSubSurfaces) {
-        //    qDebug() << "============== First:" << subSurface.edgeLoopName << "===============";
-        //    qDebug() << (subSurface.isFrontSide ? "Front:" : "Back:");
-        //    qDebug() << (subSurface.isSharedByOthers ? "Public:" : "Private:");
-        //    for (const auto &face: subSurface.faces) {
-        //        qDebug() << "face:" << face.indices[0] << face.indices[1] << face.indices[2];
-        //    }
-        //}
     }
     {
         std::vector<std::vector<size_t>> edgeLoops;
         std::vector<Face> triangles;
         doReTriangulation(&m_secondMesh, newEdgesPerTriangleInSecondMesh, triangles, edgeLoops);
         addUnIntersectedFaces(&m_secondMesh, reTriangulatedFacesInSecondMesh, triangles);
-        
-        m_debugSecondMeshReTriangulated.faces = triangles;
-        m_debugSecondMeshReTriangulated.vertices = m_newVertices;
-        
         EdgeLoop::merge(edgeLoops, &secondMergedEdgeLoops);
         EdgeLoop::unifyDirection(firstMergedEdgeLoops, &secondMergedEdgeLoops);
-        qDebug() << "Second mergedEdgeLoops:" << secondMergedEdgeLoops;
         SubSurface::createSubSurfaces(secondMergedEdgeLoops, triangles, secondSubSurfaces);
-        
-        //for (const auto &subSurface: secondSubSurfaces) {
-        //    qDebug() << "============== Second:" << subSurface.edgeLoopName << "===============";
-        //    qDebug() << (subSurface.isFrontSide ? "Front:" : "Back:");
-        //    qDebug() << (subSurface.isSharedByOthers ? "Public:" : "Private:");
-        //    for (const auto &face: subSurface.faces) {
-        //        qDebug() << "face:" << face.indices[0] << face.indices[1] << face.indices[2];
-        //    }
-        //}
     }
     
     SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, m_subBlocks);
     
-    Distinguish::distinguish(m_subBlocks, m_newVertices, &m_indicesToSubBlocks);
+    if (!Distinguish::distinguish(m_subBlocks, m_newVertices, &m_indicesToSubBlocks))
+        return false;
     
-    m_debugSubBlocks.resize(m_subBlocks.size());
-    for (size_t i = 0; i < m_subBlocks.size(); ++i) {
-        m_debugSubBlocks[i].vertices = m_newVertices;
-        for (const auto &it: m_subBlocks[i].faces) {
-            if (-1 == it.second)
-                m_debugSubBlocks[i].faces.push_back(Face {{it.first[2], it.first[1], it.first[0]}});
-            else
-                m_debugSubBlocks[i].faces.push_back(Face {{it.first[0], it.first[1], it.first[2]}});
-        }
-    }
+    return true;
 }
 
 void MeshCombiner::getResult(Type booleanType, Mesh *result)

@@ -165,8 +165,6 @@ void SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
     subBlocks.push_back(createSubBlockFromTemplate(subSurfacesContributeToMesh, true, false));
     subBlocks.push_back(createSubBlockFromTemplate(subSurfacesContributeToMesh, false, true));
     subBlocks.push_back(createSubBlockFromTemplate(subSurfacesContributeToMesh, true, true));
-    
-    qDebug() << "subBlocks:" << subBlocks.size();
 }
 
 }

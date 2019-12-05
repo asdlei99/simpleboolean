@@ -146,15 +146,6 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         subSurfaces.push_back(frontSurface);
         subSurfaces.push_back(backSurface);
     }
-    
-    qDebug() << "edgeLoops:" << edgeLoops.size();
-    qDebug() << "subSurfaces:" << subSurfaces.size();
-    //for (size_t i = 0; i < subSurfaces.size(); ++i) {
-    //    const auto &subSurface = subSurfaces[i];
-    //    qDebug() << "============== subSurface[" << i << "]" << (subSurface.isSharedByOthers ? "Public" : "Private") << "==================";
-    //    for (const auto &it: subSurface.ownerNames)
-    //        qDebug() << "owner:" << it;
-    //}
 }
 
 }

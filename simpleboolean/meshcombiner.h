@@ -13,14 +13,8 @@ class MeshCombiner
 {
 public:
     void setMeshes(const Mesh &first, const Mesh &second);
-    void combine();
+    bool combine();
     void getResult(Type booleanType, Mesh *result);
-    
-    // Debug only
-    Mesh m_debugFirstMeshReTriangulated;
-    Mesh m_debugSecondMeshReTriangulated;
-    std::vector<Mesh> m_debugSubBlocks;
-    
 private:
     void searchPotentialIntersectedPairs(std::vector<std::pair<size_t, size_t>> &pairs);
     bool intersectTwoFaces(size_t firstIndex, size_t secondIndex, std::pair<Vertex, Vertex> &newEdge);

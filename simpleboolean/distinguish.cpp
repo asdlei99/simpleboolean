@@ -62,14 +62,14 @@ static void resolveBoundingBox(const SubBlock &subBlock, const std::vector<Verte
     high->setZ(zRight);
 }
 
-void Distinguish::distinguish(std::vector<SubBlock> &subBlocks,
+bool Distinguish::distinguish(std::vector<SubBlock> &subBlocks,
         const std::vector<Vertex> &vertices,
         std::vector<int> *indicesToSubBlocks)
 {
     indicesToSubBlocks->resize(4, -1);
     
     if (subBlocks.size() != 4)
-        return;
+        return false;
     
     std::vector<size_t> unionOrIntersectionSubBlocks;
     std::vector<size_t> subtractionSubBlocks;
@@ -93,7 +93,7 @@ void Distinguish::distinguish(std::vector<SubBlock> &subBlocks,
     
     if (2 != unionOrIntersectionSubBlocks.size() ||
             2 != subtractionSubBlocks.size()) {
-        return;
+        return false;
     }
     
     auto calculateCenter = [&](const SubBlock &subBlock) {
@@ -203,6 +203,8 @@ void Distinguish::distinguish(std::vector<SubBlock> &subBlocks,
     (*indicesToSubBlocks)[(int)Type::Intersection] = intersectionIndex;
     (*indicesToSubBlocks)[(int)Type::Subtraction] = subtractionIndex;
     (*indicesToSubBlocks)[(int)Type::InversedSubtraction] = inversedSubtractionIndex;
+    
+    return true;
 }
 
 }

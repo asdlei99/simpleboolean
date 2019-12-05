@@ -16,7 +16,7 @@ enum class Type
 class Distinguish
 {
 public:
-    static void distinguish(std::vector<SubBlock> &subBlocks,
+    static bool distinguish(std::vector<SubBlock> &subBlocks,
         const std::vector<Vertex> &vertices,
         std::vector<int> *indicesToSubBlocks);
 };
