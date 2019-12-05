@@ -8,12 +8,13 @@
 #include <simpleboolean/subblock.h>
 #include <thirdparty/moller97/tritri_isectline.h>
 #include <QDebug>
+#include <QElapsedTimer>
 
 namespace simpleboolean
 {
 
 size_t MeshCombiner::m_maxOctreeDepth = 4;
-size_t MeshCombiner::m_minIntersectsInOctant = 5;
+size_t MeshCombiner::m_minIntersectsInOctant = 10;
 int MeshCombiner::m_vertexToKeyMultiplyFactor = 1000;
 
 void MeshCombiner::setMeshes(const Mesh &first, const Mesh &second)
@@ -70,55 +71,54 @@ void MeshCombiner::searchPotentialIntersectedPairs(std::vector<std::pair<size_t,
     for (const auto &i: secondGroupOfFacesIn) {
         addFaceToAxisAlignedBoundingBox(m_secondMesh, m_secondMesh.faces[i], intersectedBox);
     }
-    std::queue<std::pair<size_t, AxisAlignedBoudingBox>> octants;
-    octants.push({1, intersectedBox});
+    std::queue<std::tuple<size_t, AxisAlignedBoudingBox, std::vector<size_t>, std::vector<size_t>>> octants;
+    octants.push({1, intersectedBox, firstGroupOfFacesIn, secondGroupOfFacesIn});
     std::set<std::pair<size_t, size_t>> histories;
     while (!octants.empty()) {
         auto item = octants.front();
-        //printf("item.first:%d octants.size:%d\r\n", item.first, octants.size());
+        //printf("item.first:%d octants.size:%lu\r\n", std::get<0>(item), octants.size());
         octants.pop();
         std::vector<size_t> firstGroupCandidates;
         std::vector<size_t> secondGroupCandidates;
-        for (const auto &i: firstGroupOfFacesIn) {
-            if (item.second.intersectWith(m_firstMeshFaceAABBs[i]))
+        for (const auto &i: std::get<2>(item)) {
+            if (std::get<1>(item).intersectWith(m_firstMeshFaceAABBs[i]))
                 firstGroupCandidates.push_back(i);
         }
-        for (const auto &i: secondGroupOfFacesIn) {
-            if (item.second.intersectWith(m_secondMeshFaceAABBs[i]))
+        for (const auto &i: std::get<3>(item)) {
+            if (std::get<1>(item).intersectWith(m_secondMeshFaceAABBs[i]))
                 secondGroupCandidates.push_back(i);
         }
         /*
-        qDebug() << "octants:" << octants.size();
         printf("depth:%lu {%.2f,%.2f,%.2f -> %.2f,%.2f,%.2f} firstNum:%lu secondNum:%lu\r\n",
-            item.first,
-            item.second.lowerBound().xyz[0],
-            item.second.lowerBound().xyz[1],
-            item.second.lowerBound().xyz[2],
-            item.second.upperBound().xyz[0],
-            item.second.upperBound().xyz[1],
-            item.second.upperBound().xyz[2],
-            firstGroupCandidates.size(), secondGroupCandidates.size());*/
+            std::get<0>(item),
+            std::get<1>(item).lowerBound().xyz[0],
+            std::get<1>(item).lowerBound().xyz[1],
+            std::get<1>(item).lowerBound().xyz[2],
+            std::get<1>(item).upperBound().xyz[0],
+            std::get<1>(item).upperBound().xyz[1],
+            std::get<1>(item).upperBound().xyz[2],
+            firstGroupCandidates.size(), secondGroupCandidates.size());
+        */
         if (0 == firstGroupCandidates.size() || 0 == secondGroupCandidates.size())
             continue;
         if ((firstGroupCandidates.size() < MeshCombiner::m_minIntersectsInOctant &&
                     secondGroupCandidates.size() < MeshCombiner::m_minIntersectsInOctant) ||
-                item.first >= MeshCombiner::m_maxOctreeDepth) {
+                std::get<0>(item) >= MeshCombiner::m_maxOctreeDepth) {
             for (const auto &i: firstGroupCandidates) {
                 for (const auto &j: secondGroupCandidates) {
                     std::pair<size_t, size_t> candidate = {i, j};
-                    if (histories.find(candidate) != histories.end())
-                        continue;
-                    histories.insert(candidate);
-                    pairs.push_back(candidate);
+                    auto insertResult = histories.insert(candidate);
+                    if (insertResult.second)
+                        pairs.push_back(candidate);
                 }
             }
             continue;
         }
-        std::vector<AxisAlignedBoudingBox> children;
-        if (!item.second.makeOctree(children))
+        std::vector<AxisAlignedBoudingBox> children(8);
+        if (!std::get<1>(item).makeOctree(children))
             continue;
         for (const auto &child: children) {
-            octants.push({item.first + 1, child});
+            octants.push({std::get<0>(item) + 1, child, firstGroupCandidates, secondGroupCandidates});
         }
     }
 }
@@ -173,8 +173,14 @@ void MeshCombiner::groupEdgesToLoops(const std::vector<std::pair<size_t, size_t>
 
 bool MeshCombiner::combine()
 {
+    QElapsedTimer elapsedTimer;
+    elapsedTimer.start();
     std::vector<std::pair<size_t, size_t>> potentailPairs;
+    
+    auto searchPotentialIntersectedPairsStartTime = elapsedTimer.elapsed();
     searchPotentialIntersectedPairs(potentailPairs);
+    qDebug() << "searchPotentialIntersectedPairs took" << (elapsedTimer.elapsed() - searchPotentialIntersectedPairsStartTime) << "milliseconds";
+    
     std::map<size_t, std::vector<std::pair<size_t, size_t>>> newEdgesPerTriangleInFirstMesh;
     std::map<size_t, std::vector<std::pair<size_t, size_t>>> newEdgesPerTriangleInSecondMesh;
     std::set<size_t> reTriangulatedFacesInFirstMesh;

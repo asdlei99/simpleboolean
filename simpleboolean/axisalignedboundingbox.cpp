@@ -71,8 +71,8 @@ bool AxisAlignedBoudingBox::makeOctree(std::vector<AxisAlignedBoudingBox> &octan
         abs(m_min.xyz[1] - m_max.xyz[1]) * 0.5f,
         abs(m_min.xyz[2] - m_max.xyz[2]) * 0.5f
     }};
-    if (isNull(radius.xyz[0]) || isNull(radius.xyz[1]) || isNull(radius.xyz[2]))
-        return false;
+    //if (isNull(radius.xyz[0]) || isNull(radius.xyz[1]) || isNull(radius.xyz[2]))
+    //    return false;
     octants.resize(8);
     //qDebug() << "////////////////////////////////////////////";
     //qDebug() << lowerBound().xyz[0] << lowerBound().xyz[1] << lowerBound().xyz[2];
