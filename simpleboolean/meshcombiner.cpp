@@ -13,8 +13,8 @@
 namespace simpleboolean
 {
 
-size_t MeshCombiner::m_maxOctreeDepth = 4;
-size_t MeshCombiner::m_minIntersectsInOctant = 10;
+size_t MeshCombiner::m_maxOctreeDepth = 3;
+size_t MeshCombiner::m_minIntersectsInOctant = 5;
 int MeshCombiner::m_vertexToKeyMultiplyFactor = 1000;
 
 void MeshCombiner::setMeshes(const Mesh &first, const Mesh &second)
@@ -76,7 +76,6 @@ void MeshCombiner::searchPotentialIntersectedPairs(std::vector<std::pair<size_t,
     std::set<std::pair<size_t, size_t>> histories;
     while (!octants.empty()) {
         auto item = octants.front();
-        //printf("item.first:%d octants.size:%lu\r\n", std::get<0>(item), octants.size());
         octants.pop();
         std::vector<size_t> firstGroupCandidates;
         std::vector<size_t> secondGroupCandidates;
@@ -88,17 +87,6 @@ void MeshCombiner::searchPotentialIntersectedPairs(std::vector<std::pair<size_t,
             if (std::get<1>(item).intersectWith(m_secondMeshFaceAABBs[i]))
                 secondGroupCandidates.push_back(i);
         }
-        /*
-        printf("depth:%lu {%.2f,%.2f,%.2f -> %.2f,%.2f,%.2f} firstNum:%lu secondNum:%lu\r\n",
-            std::get<0>(item),
-            std::get<1>(item).lowerBound().xyz[0],
-            std::get<1>(item).lowerBound().xyz[1],
-            std::get<1>(item).lowerBound().xyz[2],
-            std::get<1>(item).upperBound().xyz[0],
-            std::get<1>(item).upperBound().xyz[1],
-            std::get<1>(item).upperBound().xyz[2],
-            firstGroupCandidates.size(), secondGroupCandidates.size());
-        */
         if (0 == firstGroupCandidates.size() || 0 == secondGroupCandidates.size())
             continue;
         if ((firstGroupCandidates.size() < MeshCombiner::m_minIntersectsInOctant &&
@@ -106,10 +94,12 @@ void MeshCombiner::searchPotentialIntersectedPairs(std::vector<std::pair<size_t,
                 std::get<0>(item) >= MeshCombiner::m_maxOctreeDepth) {
             for (const auto &i: firstGroupCandidates) {
                 for (const auto &j: secondGroupCandidates) {
-                    std::pair<size_t, size_t> candidate = {i, j};
-                    auto insertResult = histories.insert(candidate);
-                    if (insertResult.second)
-                        pairs.push_back(candidate);
+                    if (m_firstMeshFaceAABBs[i].intersectWith(m_secondMeshFaceAABBs[j])) {
+                        std::pair<size_t, size_t> candidate = {i, j};
+                        auto insertResult = histories.insert(candidate);
+                        if (insertResult.second)
+                            pairs.push_back(candidate);
+                    }
                 }
             }
             continue;
@@ -179,8 +169,9 @@ bool MeshCombiner::combine()
     
     auto searchPotentialIntersectedPairsStartTime = elapsedTimer.elapsed();
     searchPotentialIntersectedPairs(potentailPairs);
-    qDebug() << "searchPotentialIntersectedPairs took" << (elapsedTimer.elapsed() - searchPotentialIntersectedPairsStartTime) << "milliseconds";
+    qDebug() << "Search potential intersected pairs took" << (elapsedTimer.elapsed() - searchPotentialIntersectedPairsStartTime) << "milliseconds";
     
+    auto checkPotentialIntersectedPairsStartTime = elapsedTimer.elapsed();
     std::map<size_t, std::vector<std::pair<size_t, size_t>>> newEdgesPerTriangleInFirstMesh;
     std::map<size_t, std::vector<std::pair<size_t, size_t>>> newEdgesPerTriangleInSecondMesh;
     std::set<size_t> reTriangulatedFacesInFirstMesh;
@@ -209,6 +200,7 @@ bool MeshCombiner::combine()
             reTriangulatedFacesInSecondMesh.insert(pair.second);
         }
     }
+    qDebug() << "Check potential intersected pairs took" << (elapsedTimer.elapsed() - checkPotentialIntersectedPairsStartTime) << "milliseconds";
     auto doReTriangulation = [&](const Mesh *mesh, const std::map<size_t, std::vector<std::pair<size_t, size_t>>> &newEdgesPerTriangle, std::vector<Face> &toTriangles, std::vector<std::vector<size_t>> &edgeLoops) {
         for (const auto &it: newEdgesPerTriangle) {
             const auto &face = mesh->faces[it.first];
@@ -245,6 +237,7 @@ bool MeshCombiner::combine()
             toTriangles.push_back(triangle);
         }
     };
+    auto createSubSurfacesStartTime = elapsedTimer.elapsed();
     std::vector<SubSurface> firstSubSurfaces;
     std::vector<SubSurface> secondSubSurfaces;
     std::vector<std::vector<size_t>> firstMergedEdgeLoops;
@@ -266,11 +259,16 @@ bool MeshCombiner::combine()
         EdgeLoop::unifyDirection(firstMergedEdgeLoops, &secondMergedEdgeLoops);
         SubSurface::createSubSurfaces(secondMergedEdgeLoops, triangles, secondSubSurfaces);
     }
+    qDebug() << "Create subsurfaces took" << (elapsedTimer.elapsed() - createSubSurfacesStartTime) << "milliseconds";
     
+    auto createSubBlocksStartTime = elapsedTimer.elapsed();
     SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, m_subBlocks);
+    qDebug() << "Create subblocks took" << (elapsedTimer.elapsed() - createSubBlocksStartTime) << "milliseconds";
     
+    auto distinguishStartTime = elapsedTimer.elapsed();
     if (!Distinguish::distinguish(m_subBlocks, m_newVertices, &m_indicesToSubBlocks))
         return false;
+    qDebug() << "Distinguish took" << (elapsedTimer.elapsed() - distinguishStartTime) << "milliseconds";
     
     return true;
 }

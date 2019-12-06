@@ -54,6 +54,14 @@ int main(int argc, char *argv[])
     auto cgalStartTime = elapsedTimer.elapsed();
     CGAL::Polygon_mesh_processing::corefine_and_compute_union(*cgalMesh1, *cgalMesh2, *resultCgalMesh);
     qDebug() << "CGAL took" << (elapsedTimer.elapsed() - cgalStartTime) << "milliseconds";
-
+    /*
+    {
+        std::vector<QVector3D> vertices;
+        std::vector<std::vector<size_t>> faces;
+        fetchFromCgalMesh<CgalKernel>(resultCgalMesh, vertices, faces);
+        nodemesh::exportMeshAsObj(vertices, faces, "/Users/jeremy/Desktop/cgal.obj");
+    }
+    */
+    
     return 0;
 }
