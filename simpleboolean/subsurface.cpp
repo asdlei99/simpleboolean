@@ -4,6 +4,7 @@
 #include <queue>
 #include <array>
 #include <QDebug>
+#include <QElapsedTimer>
 
 namespace simpleboolean
 {
@@ -23,6 +24,10 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         const std::vector<Face> &triangles,
         std::vector<SubSurface> &subSurfaces)
 {
+    QElapsedTimer elapsedTimer;
+    elapsedTimer.start();
+    
+    auto createHalfEdgesStartTime = elapsedTimer.elapsed();
     std::map<std::pair<size_t, size_t>, size_t> halfEdges;
     for (size_t m = 0; m < triangles.size(); ++m) {
         const auto &triangle = triangles[m];
@@ -32,7 +37,9 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
             halfEdges.insert({edge, m});
         }
     }
+    //qDebug() << "Create halfedges took" << (elapsedTimer.elapsed() - createHalfEdgesStartTime) << "milliseconds";
     
+    auto createEdgeLoopMapStartTime = elapsedTimer.elapsed();
     std::map<std::pair<size_t, size_t>, std::pair<size_t, bool>> edgeToLoopMap;
     for (size_t m = 0; m < edgeLoops.size(); ++m) {
         const auto &edgeLoop = edgeLoops[m];
@@ -42,19 +49,21 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
             edgeToLoopMap.insert({std::make_pair(edgeLoop[j], edgeLoop[i]), std::make_pair(m, false)});
         }
     }
+    //qDebug() << "Create edgeloopmap took" << (elapsedTimer.elapsed() - createEdgeLoopMapStartTime) << "milliseconds";
     
+    auto createEdgeLoopNamesStartTime = elapsedTimer.elapsed();
     std::vector<QString> edgeLoopNames(edgeLoops.size());
     for (size_t edgeLoopIndex = 0; edgeLoopIndex < edgeLoops.size(); ++edgeLoopIndex) {
         const auto &edgeLoop = edgeLoops[edgeLoopIndex];
         edgeLoopNames[edgeLoopIndex] = createEdgeLoopName(edgeLoop);
     }
-
+    //qDebug() << "Create edgeloopnames took" << (elapsedTimer.elapsed() - createEdgeLoopNamesStartTime) << "milliseconds";
+    
+    std::vector<bool> visited(triangles.size());
     for (size_t edgeLoopIndex = 0; edgeLoopIndex < edgeLoops.size(); ++edgeLoopIndex) {
         const auto &edgeLoop = edgeLoops[edgeLoopIndex];
         if (edgeLoop.size() < 2)
             continue;
-        
-        std::set<size_t> visitedFaces;
         
         const auto &edgeLoopName = edgeLoopNames[edgeLoopIndex];
         
@@ -72,10 +81,10 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
         std::queue<size_t> backTriangleIndices;
         
         auto addFrontTriangle = [&](size_t triangleIndex) {
-            if (visitedFaces.find(triangleIndex) != visitedFaces.end())
+            if (visited[triangleIndex])
                 return;
             const auto &face = triangles[triangleIndex];
-            visitedFaces.insert(triangleIndex);
+            visited[triangleIndex] = true;
             frontSurface.faces.push_back(face);
             for (size_t m = 0; m < 3; ++m) {
                 size_t n = (m + 1) % 3;
@@ -90,16 +99,16 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
                     continue;
                 }
                 auto findNeighbor = halfEdges.find(edge);
-                if (findNeighbor != halfEdges.end())
+                if (findNeighbor != halfEdges.end() && !visited[findNeighbor->second])
                     frontTriangleIndices.push(findNeighbor->second);
             }
         };
         
         auto addBackTriangle = [&](size_t triangleIndex) {
-            if (visitedFaces.find(triangleIndex) != visitedFaces.end())
+            if (visited[triangleIndex])
                 return;
             const auto &face = triangles[triangleIndex];
-            visitedFaces.insert(triangleIndex);
+            visited[triangleIndex] = true;
             backSurface.faces.push_back(face);
             for (size_t m = 0; m < 3; ++m) {
                 size_t n = (m + 1) % 3;
@@ -114,7 +123,7 @@ void SubSurface::createSubSurfaces(const std::vector<std::vector<size_t>> &edgeL
                     continue;
                 }
                 auto findNeighbor = halfEdges.find(edge);
-                if (findNeighbor != halfEdges.end())
+                if (findNeighbor != halfEdges.end() && !visited[findNeighbor->second])
                     backTriangleIndices.push(findNeighbor->second);
             }
         };

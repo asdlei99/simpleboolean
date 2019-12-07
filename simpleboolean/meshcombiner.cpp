@@ -14,8 +14,6 @@
 namespace simpleboolean
 {
 
-size_t MeshCombiner::m_maxOctreeDepth = 3;
-size_t MeshCombiner::m_minIntersectsInOctant = 5;
 int MeshCombiner::m_vertexToKeyMultiplyFactor = 1000;
 
 MeshCombiner::~MeshCombiner()
@@ -211,7 +209,7 @@ bool MeshCombiner::combine()
             toTriangles.push_back(triangle);
         }
     };
-    auto createSubSurfacesStartTime = elapsedTimer.elapsed();
+    auto createSubSurfacesAndOthersStartTime = elapsedTimer.elapsed();
     std::vector<SubSurface> firstSubSurfaces;
     std::vector<SubSurface> secondSubSurfaces;
     std::vector<std::vector<size_t>> firstMergedEdgeLoops;
@@ -219,10 +217,16 @@ bool MeshCombiner::combine()
     {
         std::vector<std::vector<size_t>> edgeLoops;
         std::vector<Face> triangles;
+        auto reTriangulationStartTime = elapsedTimer.elapsed();
         doReTriangulation(&m_firstMesh, newEdgesPerTriangleInFirstMesh, triangles, edgeLoops);
+        //qDebug() << "    Do retriangulation took" << (elapsedTimer.elapsed() - reTriangulationStartTime) << "milliseconds";
+        auto addUnIntersectedStartTime = elapsedTimer.elapsed();
         addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, triangles);
+        //qDebug() << "    Add unintsersected took" << (elapsedTimer.elapsed() - addUnIntersectedStartTime) << "milliseconds";
         EdgeLoop::merge(edgeLoops, &firstMergedEdgeLoops);
+        auto createSubSurfacesStartTime = elapsedTimer.elapsed();
         SubSurface::createSubSurfaces(firstMergedEdgeLoops, triangles, firstSubSurfaces);
+        //qDebug() << "    Create subsurfaces took" << (elapsedTimer.elapsed() - createSubSurfacesStartTime) << "milliseconds";
     }
     {
         std::vector<std::vector<size_t>> edgeLoops;
@@ -233,7 +237,7 @@ bool MeshCombiner::combine()
         EdgeLoop::unifyDirection(firstMergedEdgeLoops, &secondMergedEdgeLoops);
         SubSurface::createSubSurfaces(secondMergedEdgeLoops, triangles, secondSubSurfaces);
     }
-    qDebug() << "Create subsurfaces took" << (elapsedTimer.elapsed() - createSubSurfacesStartTime) << "milliseconds";
+    qDebug() << "Create subsurfaces and others took" << (elapsedTimer.elapsed() - createSubSurfacesAndOthersStartTime) << "milliseconds";
     
     auto createSubBlocksStartTime = elapsedTimer.elapsed();
     SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, m_subBlocks);

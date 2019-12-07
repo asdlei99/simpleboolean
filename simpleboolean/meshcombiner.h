@@ -28,8 +28,6 @@ private:
         std::vector<std::vector<size_t>> &edgeLoops);
     Mesh m_firstMesh;
     Mesh m_secondMesh;
-    static size_t m_maxOctreeDepth;
-    static size_t m_minIntersectsInOctant;
     static int m_vertexToKeyMultiplyFactor;
     std::vector<AxisAlignedBoudingBox> m_firstMeshFaceAABBs;
     std::vector<AxisAlignedBoudingBox> m_secondMeshFaceAABBs;
