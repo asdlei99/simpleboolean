@@ -6,6 +6,7 @@
 #include <simpleboolean/edgeloop.h>
 #include <simpleboolean/subsurface.h>
 #include <simpleboolean/subblock.h>
+#include <simpleboolean/axisalignedboundingboxtree.h>
 #include <thirdparty/moller97/tritri_isectline.h>
 #include <QDebug>
 #include <QElapsedTimer>
@@ -17,6 +18,11 @@ size_t MeshCombiner::m_maxOctreeDepth = 3;
 size_t MeshCombiner::m_minIntersectsInOctant = 5;
 int MeshCombiner::m_vertexToKeyMultiplyFactor = 1000;
 
+MeshCombiner::~MeshCombiner()
+{
+    delete m_potentialIntersectedPairs;
+}
+
 void MeshCombiner::setMeshes(const Mesh &first, const Mesh &second)
 {
     m_firstMesh = first;
@@ -25,9 +31,11 @@ void MeshCombiner::setMeshes(const Mesh &first, const Mesh &second)
     m_secondMeshFaceAABBs.resize(m_secondMesh.faces.size());
     for (size_t i = 0; i < m_firstMesh.faces.size(); ++i) {
         addFaceToAxisAlignedBoundingBox(m_firstMesh, m_firstMesh.faces[i], m_firstMeshFaceAABBs[i]);
+        m_firstMeshFaceAABBs[i].updateCenter();
     }
     for (size_t i = 0; i < m_secondMesh.faces.size(); ++i) {
         addFaceToAxisAlignedBoundingBox(m_secondMesh, m_secondMesh.faces[i], m_secondMeshFaceAABBs[i]);
+        m_secondMeshFaceAABBs[i].updateCenter();
     }
 }
 
@@ -45,14 +53,14 @@ void MeshCombiner::addFaceToAxisAlignedBoundingBox(const Mesh &mesh, const Face 
     }
 }
 
-void MeshCombiner::searchPotentialIntersectedPairs(std::vector<std::pair<size_t, size_t>> &pairs)
+void MeshCombiner::searchPotentialIntersectedPairs()
 {
     AxisAlignedBoudingBox firstBox;
     AxisAlignedBoudingBox secondBox;
     AxisAlignedBoudingBox intersectedBox;
     addMeshToAxisAlignedBoundingBox(m_firstMesh, firstBox);
     addMeshToAxisAlignedBoundingBox(m_secondMesh, secondBox);
-    firstBox.intersectWith(secondBox, &intersectedBox);
+    firstBox.intersectWithAt(secondBox, &intersectedBox);
     std::vector<size_t> firstGroupOfFacesIn;
     std::vector<size_t> secondGroupOfFacesIn;
     for (size_t i = 0; i < m_firstMeshFaceAABBs.size(); ++i) {
@@ -65,52 +73,19 @@ void MeshCombiner::searchPotentialIntersectedPairs(std::vector<std::pair<size_t,
             secondGroupOfFacesIn.push_back(i);
         }
     }
+    AxisAlignedBoudingBox firstGroupBox;
     for (const auto &i: firstGroupOfFacesIn) {
-        addFaceToAxisAlignedBoundingBox(m_firstMesh, m_firstMesh.faces[i], intersectedBox);
+        addFaceToAxisAlignedBoundingBox(m_firstMesh, m_firstMesh.faces[i], firstGroupBox);
     }
+    firstGroupBox.updateCenter();
+    AxisAlignedBoudingBox secondGroupBox;
     for (const auto &i: secondGroupOfFacesIn) {
-        addFaceToAxisAlignedBoundingBox(m_secondMesh, m_secondMesh.faces[i], intersectedBox);
+        addFaceToAxisAlignedBoundingBox(m_secondMesh, m_secondMesh.faces[i], secondGroupBox);
     }
-    std::queue<std::tuple<size_t, AxisAlignedBoudingBox, std::vector<size_t>, std::vector<size_t>>> octants;
-    octants.push({1, intersectedBox, firstGroupOfFacesIn, secondGroupOfFacesIn});
-    std::set<std::pair<size_t, size_t>> histories;
-    while (!octants.empty()) {
-        auto item = octants.front();
-        octants.pop();
-        std::vector<size_t> firstGroupCandidates;
-        std::vector<size_t> secondGroupCandidates;
-        for (const auto &i: std::get<2>(item)) {
-            if (std::get<1>(item).intersectWith(m_firstMeshFaceAABBs[i]))
-                firstGroupCandidates.push_back(i);
-        }
-        for (const auto &i: std::get<3>(item)) {
-            if (std::get<1>(item).intersectWith(m_secondMeshFaceAABBs[i]))
-                secondGroupCandidates.push_back(i);
-        }
-        if (0 == firstGroupCandidates.size() || 0 == secondGroupCandidates.size())
-            continue;
-        if ((firstGroupCandidates.size() < MeshCombiner::m_minIntersectsInOctant &&
-                    secondGroupCandidates.size() < MeshCombiner::m_minIntersectsInOctant) ||
-                std::get<0>(item) >= MeshCombiner::m_maxOctreeDepth) {
-            for (const auto &i: firstGroupCandidates) {
-                for (const auto &j: secondGroupCandidates) {
-                    if (m_firstMeshFaceAABBs[i].intersectWith(m_secondMeshFaceAABBs[j])) {
-                        std::pair<size_t, size_t> candidate = {i, j};
-                        auto insertResult = histories.insert(candidate);
-                        if (insertResult.second)
-                            pairs.push_back(candidate);
-                    }
-                }
-            }
-            continue;
-        }
-        std::vector<AxisAlignedBoudingBox> children(8);
-        if (!std::get<1>(item).makeOctree(children))
-            continue;
-        for (const auto &child: children) {
-            octants.push({std::get<0>(item) + 1, child, firstGroupCandidates, secondGroupCandidates});
-        }
-    }
+    secondGroupBox.updateCenter();
+    AxisAlignedBoudingBoxTree leftTree(&m_firstMeshFaceAABBs, firstGroupOfFacesIn, firstGroupBox);
+    AxisAlignedBoudingBoxTree rightTree(&m_secondMeshFaceAABBs, secondGroupOfFacesIn, secondGroupBox);
+    m_potentialIntersectedPairs = leftTree.test(leftTree.root(), rightTree.root());
 }
 
 bool MeshCombiner::intersectTwoFaces(size_t firstIndex, size_t secondIndex, std::pair<Vertex, Vertex> &newEdge)
@@ -165,10 +140,9 @@ bool MeshCombiner::combine()
 {
     QElapsedTimer elapsedTimer;
     elapsedTimer.start();
-    std::vector<std::pair<size_t, size_t>> potentailPairs;
-    
+
     auto searchPotentialIntersectedPairsStartTime = elapsedTimer.elapsed();
-    searchPotentialIntersectedPairs(potentailPairs);
+    searchPotentialIntersectedPairs();
     qDebug() << "Search potential intersected pairs took" << (elapsedTimer.elapsed() - searchPotentialIntersectedPairsStartTime) << "milliseconds";
     
     auto checkPotentialIntersectedPairsStartTime = elapsedTimer.elapsed();
@@ -176,7 +150,7 @@ bool MeshCombiner::combine()
     std::map<size_t, std::vector<std::pair<size_t, size_t>>> newEdgesPerTriangleInSecondMesh;
     std::set<size_t> reTriangulatedFacesInFirstMesh;
     std::set<size_t> reTriangulatedFacesInSecondMesh;
-    for (const auto &pair: potentailPairs) {
+    for (const auto &pair: *m_potentialIntersectedPairs) {
         std::pair<Vertex, Vertex> newEdge;
         if (intersectTwoFaces(pair.first, pair.second, newEdge)) {
             if (vertexToKey(newEdge.first) == vertexToKey(newEdge.second))
@@ -269,6 +243,19 @@ bool MeshCombiner::combine()
     if (!Distinguish::distinguish(m_subBlocks, m_newVertices, &m_indicesToSubBlocks))
         return false;
     qDebug() << "Distinguish took" << (elapsedTimer.elapsed() - distinguishStartTime) << "milliseconds";
+    
+#ifndef NDEBUG
+    m_debugSubBlocks.resize(m_subBlocks.size());
+    for (size_t i = 0; i < m_subBlocks.size(); ++i) {
+        m_debugSubBlocks[i].vertices = m_newVertices;
+        for (const auto &it: m_subBlocks[i].faces) {
+            if (-1 == it.second)
+                m_debugSubBlocks[i].faces.push_back(Face {{it.first[2], it.first[1], it.first[0]}});
+            else
+                m_debugSubBlocks[i].faces.push_back(Face {{it.first[0], it.first[1], it.first[2]}});
+        }
+    }
+#endif
     
     return true;
 }

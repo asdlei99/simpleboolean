@@ -3,13 +3,47 @@
 #include <vector>
 #include <cstdlib>
 #include <QString>
+#include <QDebug>
 
 namespace simpleboolean
 {
 
-struct Vector
+class Vector
 {
-    float xyz[3];
+public:
+    float xyz[3] = {0.0f, 0.0f, 0.0f};
+    
+    Vector()
+    {
+    }
+    
+    Vector(float x, float y, float z)
+    {
+        xyz[0] = x;
+        xyz[1] = y;
+        xyz[2] = z;
+    }
+    
+    Vector &operator+=(const Vector &other)
+    {
+        for (size_t i = 0; i < 3; ++i)
+            xyz[i] += other.xyz[i];
+        return *this;
+    }
+    
+    Vector &operator*=(float factor)
+    {
+        for (size_t i = 0; i < 3; ++i)
+            xyz[i] *= factor;
+        return *this;
+    }
+    
+    Vector &operator/=(float factor)
+    {
+        for (size_t i = 0; i < 3; ++i)
+            xyz[i] /= factor;
+        return *this;
+    }
 };
 
 typedef Vector Vertex;

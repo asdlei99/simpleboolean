@@ -13,24 +13,25 @@ public:
     const Vertex &upperBound() const;
     Vertex &lowerBound();
     Vertex &upperBound();
-    bool intersectWith(const AxisAlignedBoudingBox &other, AxisAlignedBoudingBox *result=nullptr) const;
-    bool makeOctree(std::vector<AxisAlignedBoudingBox> &octants);
+    bool intersectWith(const AxisAlignedBoudingBox &other) const;
+    bool intersectWithAt(const AxisAlignedBoudingBox &other, AxisAlignedBoudingBox *result) const;
+    const Vertex &center() const;
+    void updateCenter();
     
 private:
     Vertex m_min = {
-        {
-            std::numeric_limits<float>::max(),
-            std::numeric_limits<float>::max(),
-            std::numeric_limits<float>::max(),
-        }
+        std::numeric_limits<float>::max(),
+        std::numeric_limits<float>::max(),
+        std::numeric_limits<float>::max(),
     };
     Vertex m_max = {
-        {
-            std::numeric_limits<float>::min(),
-            std::numeric_limits<float>::min(),
-            std::numeric_limits<float>::min(),
-        }
+        std::numeric_limits<float>::min(),
+        std::numeric_limits<float>::min(),
+        std::numeric_limits<float>::min(),
     };
+    Vertex m_sum;
+    size_t m_num = 0;
+    Vertex m_center;
 };
   
 }

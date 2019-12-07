@@ -13,7 +13,21 @@ void AxisAlignedBoudingBox::update(const Vertex &vertex)
             m_max.xyz[i] = vertex.xyz[i];
         if (vertex.xyz[i] < m_min.xyz[i])
             m_min.xyz[i] = vertex.xyz[i];
+        m_sum.xyz[i] += vertex.xyz[i];
     }
+    ++m_num;
+}
+
+const Vertex &AxisAlignedBoudingBox::center() const
+{
+    return m_center;
+}
+
+void AxisAlignedBoudingBox::updateCenter()
+{
+    if (0 == m_num)
+        return;
+    m_center = m_sum /= (float)m_num;
 }
 
 const Vertex &AxisAlignedBoudingBox::lowerBound() const
@@ -36,7 +50,7 @@ Vertex &AxisAlignedBoudingBox::upperBound()
     return m_max;
 }
 
-bool AxisAlignedBoudingBox::intersectWith(const AxisAlignedBoudingBox &other, AxisAlignedBoudingBox *result) const
+bool AxisAlignedBoudingBox::intersectWithAt(const AxisAlignedBoudingBox &other, AxisAlignedBoudingBox *result) const
 {
     const Vertex &otherMin = other.lowerBound();
     const Vertex &otherMax = other.upperBound();
@@ -45,8 +59,6 @@ bool AxisAlignedBoudingBox::intersectWith(const AxisAlignedBoudingBox &other, Ax
             continue;
         return false;
     }
-    if (nullptr == result)
-        return true;
     for (size_t i = 0; i < 3; ++i) {
         std::vector<float> points = {
             m_min.xyz[i], otherMax.xyz[i], m_max.xyz[i], otherMin.xyz[i]
@@ -60,42 +72,14 @@ bool AxisAlignedBoudingBox::intersectWith(const AxisAlignedBoudingBox &other, Ax
     return true;
 }
 
-bool AxisAlignedBoudingBox::makeOctree(std::vector<AxisAlignedBoudingBox> &octants)
+bool AxisAlignedBoudingBox::intersectWith(const AxisAlignedBoudingBox &other) const
 {
-    Vertex origin = {{(m_min.xyz[0] + m_max.xyz[0]) * 0.5f,
-        (m_min.xyz[1] + m_max.xyz[1]) * 0.5f,
-        (m_min.xyz[2] + m_max.xyz[2]) * 0.5f
-    }};
-    Vector radius = {{
-        abs(m_min.xyz[0] - m_max.xyz[0]) * 0.5f,
-        abs(m_min.xyz[1] - m_max.xyz[1]) * 0.5f,
-        abs(m_min.xyz[2] - m_max.xyz[2]) * 0.5f
-    }};
-    //if (isNull(radius.xyz[0]) || isNull(radius.xyz[1]) || isNull(radius.xyz[2]))
-    //    return false;
-    octants.resize(8);
-    //qDebug() << "////////////////////////////////////////////";
-    //qDebug() << lowerBound().xyz[0] << lowerBound().xyz[1] << lowerBound().xyz[2];
-    //qDebug() << upperBound().xyz[0] << upperBound().xyz[1] << upperBound().xyz[2];
-    for (size_t i = 0; i < octants.size(); ++i) {
-        Vertex newOrigin = origin;
-        std::vector<float> halfRadius = {
-            radius.xyz[0] * 0.5f,
-            radius.xyz[1] * 0.5f,
-            radius.xyz[2] * 0.5f,
-        };
-        newOrigin.xyz[0] += ((i & 4) ? halfRadius[0] : -halfRadius[0]);
-        newOrigin.xyz[1] += ((i & 2) ? halfRadius[1] : -halfRadius[1]);
-        newOrigin.xyz[2] += ((i & 1) ? halfRadius[2] : -halfRadius[2]);
-        for (size_t j = 0; j < 3; ++j) {
-            octants[i].lowerBound().xyz[j] = newOrigin.xyz[j] - halfRadius[j];
-        }
-        for (size_t j = 0; j < 3; ++j) {
-            octants[i].upperBound().xyz[j] = newOrigin.xyz[j] + halfRadius[j];
-        }
-        //qDebug() << "[" << i << "]";
-        //qDebug() << octants[i].lowerBound().xyz[0] << octants[i].lowerBound().xyz[1] << octants[i].lowerBound().xyz[2];
-        //qDebug() << octants[i].upperBound().xyz[0] << octants[i].upperBound().xyz[1] << octants[i].upperBound().xyz[2];
+    const Vertex &otherMin = other.lowerBound();
+    const Vertex &otherMax = other.upperBound();
+    for (size_t i = 0; i < 3; ++i) {
+        if (m_min.xyz[i] <= otherMax.xyz[i] && m_max.xyz[i] >= otherMin.xyz[i])
+            continue;
+        return false;
     }
     return true;
 }

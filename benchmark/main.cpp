@@ -32,6 +32,27 @@ int main(int argc, char *argv[])
 
     qDebug() << "Simpleboolean took" << (elapsedTimer.elapsed() - simpleBooleanStartTime) << "milliseconds";
     
+#ifndef NDEBUG
+    simpleboolean::Mesh subBlocksMesh;
+    for (size_t i = 0; i < combiner.m_debugSubBlocks.size(); ++i) {
+        const auto &subBlock = combiner.m_debugSubBlocks[i];
+        size_t startVertexIndex = subBlocksMesh.vertices.size();
+        for (const auto &vertex: subBlock.vertices) {
+            auto newVertex = vertex;
+            newVertex.xyz[0] += i * 1.0 - (combiner.m_debugSubBlocks.size() / 2);
+            subBlocksMesh.vertices.push_back(newVertex);
+        }
+        for (const auto &face: subBlock.faces) {
+            auto newFace = face;
+            newFace.indices[0] += startVertexIndex;
+            newFace.indices[1] += startVertexIndex;
+            newFace.indices[2] += startVertexIndex;
+            subBlocksMesh.faces.push_back(newFace);
+        }
+    }
+    exportTriangulatedObj(subBlocksMesh, QString("/Users/jeremy/Desktop/debug-subblock-list.obj"));
+#endif
+    
     auto simplebooleanMeshToCgalMesh = [&](const simpleboolean::Mesh &mesh) {
         std::vector<QVector3D> vertices(mesh.vertices.size());
         for (size_t i = 0; i < mesh.vertices.size(); ++i) {

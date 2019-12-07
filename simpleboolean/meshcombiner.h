@@ -15,8 +15,12 @@ public:
     void setMeshes(const Mesh &first, const Mesh &second);
     bool combine();
     void getResult(Type booleanType, Mesh *result);
+    ~MeshCombiner();
+#ifndef NDEBUG
+    std::vector<Mesh> m_debugSubBlocks;
+#endif
 private:
-    void searchPotentialIntersectedPairs(std::vector<std::pair<size_t, size_t>> &pairs);
+    void searchPotentialIntersectedPairs();
     bool intersectTwoFaces(size_t firstIndex, size_t secondIndex, std::pair<Vertex, Vertex> &newEdge);
     void addMeshToAxisAlignedBoundingBox(const Mesh &mesh, AxisAlignedBoudingBox &box);
     void addFaceToAxisAlignedBoundingBox(const Mesh &mesh, const Face &face, AxisAlignedBoudingBox &box);
@@ -35,6 +39,7 @@ private:
     std::map<std::tuple<int, int, int>, size_t> m_newVertexToIndexMap;
     std::vector<SubBlock> m_subBlocks;
     std::vector<int> m_indicesToSubBlocks;
+    std::vector<std::pair<size_t, size_t>> *m_potentialIntersectedPairs = nullptr;
 };
 
 }

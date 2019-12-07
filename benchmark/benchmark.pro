@@ -66,6 +66,9 @@ HEADERS += simpleboolean/util.h
 SOURCES += simpleboolean/triangulate.cpp
 HEADERS += simpleboolean/triangulate.h
 
+SOURCES += simpleboolean/axisalignedboundingboxtree.cpp
+HEADERS += simpleboolean/axisalignedboundingboxtree.h
+
 SOURCES += thirdparty/moller97/tritri_isectline.cpp
 HEADERS += thirdparty/moller97/tritri_isectline.h
 
