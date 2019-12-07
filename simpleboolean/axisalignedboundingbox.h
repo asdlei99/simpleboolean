@@ -25,9 +25,9 @@ private:
         std::numeric_limits<float>::max(),
     };
     Vertex m_max = {
-        std::numeric_limits<float>::min(),
-        std::numeric_limits<float>::min(),
-        std::numeric_limits<float>::min(),
+        std::numeric_limits<float>::lowest(),
+        std::numeric_limits<float>::lowest(),
+        std::numeric_limits<float>::lowest(),
     };
     Vertex m_sum;
     size_t m_num = 0;

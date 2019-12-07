@@ -40,13 +40,11 @@ void AxisAlignedBoudingBoxTree::testNodes(const Node *first, const Node *second)
     if (first->boundingBox.intersectWith(second->boundingBox)) {
         if (first->isLeaf()) {
             if (second->isLeaf()) {
-                //if ((*m_boxes)[first->boxIndices.front()].intersectWith(
-                //        (*m_boxes)[second->boxIndices.front()])) {
-                //    qDebug() << "Add pair:" << std::make_pair(first->boxIndices.front(),
-                //        second->boxIndices.front());
+                if ((*m_boxes)[first->boxIndices.front()].intersectWith(
+                        (*m_secondBoxes)[second->boxIndices.front()])) {
                     m_testPairs->push_back(std::make_pair(first->boxIndices.front(),
                         second->boxIndices.front()));
-                //}
+                }
             } else {
                 testNodes(first, second->left);
                 testNodes(first, second->right);
@@ -68,8 +66,10 @@ void AxisAlignedBoudingBoxTree::testNodes(const Node *first, const Node *second)
     }
 }
 
-std::vector<std::pair<size_t, size_t>> *AxisAlignedBoudingBoxTree::test(const Node *first, const Node *second)
+std::vector<std::pair<size_t, size_t>> *AxisAlignedBoudingBoxTree::test(const Node *first, const Node *second,
+    const std::vector<AxisAlignedBoudingBox> *secondBoxes)
 {
+    m_secondBoxes = secondBoxes;
     m_testPairs = new std::vector<std::pair<size_t, size_t>>;
     testNodes(first, second);
     auto testPairs = m_testPairs;

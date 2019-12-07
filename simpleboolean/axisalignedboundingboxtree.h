@@ -31,10 +31,12 @@ public:
     void splitNode(Node *node);
     void deleteNode(Node *node);
     void testNodes(const Node *first, const Node *second);
-    std::vector<std::pair<size_t, size_t>> *test(const Node *first, const Node *second);
+    std::vector<std::pair<size_t, size_t>> *test(const Node *first, const Node *second,
+        const std::vector<AxisAlignedBoudingBox> *secondBoxes);
     
 private:
     const std::vector<AxisAlignedBoudingBox> *m_boxes = nullptr;
+    const std::vector<AxisAlignedBoudingBox> *m_secondBoxes = nullptr;
     Node *m_root = nullptr;
     std::vector<std::pair<size_t, size_t>> *m_testPairs = nullptr;
 };

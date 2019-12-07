@@ -27,12 +27,11 @@ int main(int argc, char *argv[])
     auto simpleBooleanStartTime = elapsedTimer.elapsed();
     simpleboolean::MeshCombiner combiner;
     combiner.setMeshes(mesh1, mesh2);
-    if (!combiner.combine())
-        return 1;
-
-    qDebug() << "Simpleboolean took" << (elapsedTimer.elapsed() - simpleBooleanStartTime) << "milliseconds";
+    bool combineSucceed = combiner.combine();
     
-#ifndef NDEBUG
+    if (combineSucceed)
+        qDebug() << "Simpleboolean took" << (elapsedTimer.elapsed() - simpleBooleanStartTime) << "milliseconds";
+    
     simpleboolean::Mesh subBlocksMesh;
     for (size_t i = 0; i < combiner.m_debugSubBlocks.size(); ++i) {
         const auto &subBlock = combiner.m_debugSubBlocks[i];
@@ -51,7 +50,9 @@ int main(int argc, char *argv[])
         }
     }
     exportTriangulatedObj(subBlocksMesh, QString("/Users/jeremy/Desktop/debug-subblock-list.obj"));
-#endif
+    
+    if (!combineSucceed)
+        return 1;
     
     auto simplebooleanMeshToCgalMesh = [&](const simpleboolean::Mesh &mesh) {
         std::vector<QVector3D> vertices(mesh.vertices.size());

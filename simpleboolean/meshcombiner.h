@@ -16,9 +16,7 @@ public:
     bool combine();
     void getResult(Type booleanType, Mesh *result);
     ~MeshCombiner();
-#ifndef NDEBUG
     std::vector<Mesh> m_debugSubBlocks;
-#endif
 private:
     void searchPotentialIntersectedPairs();
     bool intersectTwoFaces(size_t firstIndex, size_t secondIndex, std::pair<Vertex, Vertex> &newEdge);

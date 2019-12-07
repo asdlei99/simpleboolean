@@ -85,7 +85,7 @@ void MeshCombiner::searchPotentialIntersectedPairs()
     secondGroupBox.updateCenter();
     AxisAlignedBoudingBoxTree leftTree(&m_firstMeshFaceAABBs, firstGroupOfFacesIn, firstGroupBox);
     AxisAlignedBoudingBoxTree rightTree(&m_secondMeshFaceAABBs, secondGroupOfFacesIn, secondGroupBox);
-    m_potentialIntersectedPairs = leftTree.test(leftTree.root(), rightTree.root());
+    m_potentialIntersectedPairs = leftTree.test(leftTree.root(), rightTree.root(), &m_secondMeshFaceAABBs);
 }
 
 bool MeshCombiner::intersectTwoFaces(size_t firstIndex, size_t secondIndex, std::pair<Vertex, Vertex> &newEdge)
@@ -239,12 +239,6 @@ bool MeshCombiner::combine()
     SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, m_subBlocks);
     qDebug() << "Create subblocks took" << (elapsedTimer.elapsed() - createSubBlocksStartTime) << "milliseconds";
     
-    auto distinguishStartTime = elapsedTimer.elapsed();
-    if (!Distinguish::distinguish(m_subBlocks, m_newVertices, &m_indicesToSubBlocks))
-        return false;
-    qDebug() << "Distinguish took" << (elapsedTimer.elapsed() - distinguishStartTime) << "milliseconds";
-    
-#ifndef NDEBUG
     m_debugSubBlocks.resize(m_subBlocks.size());
     for (size_t i = 0; i < m_subBlocks.size(); ++i) {
         m_debugSubBlocks[i].vertices = m_newVertices;
@@ -255,7 +249,11 @@ bool MeshCombiner::combine()
                 m_debugSubBlocks[i].faces.push_back(Face {{it.first[0], it.first[1], it.first[2]}});
         }
     }
-#endif
+    
+    auto distinguishStartTime = elapsedTimer.elapsed();
+    if (!Distinguish::distinguish(m_subBlocks, m_newVertices, &m_indicesToSubBlocks))
+        return false;
+    qDebug() << "Distinguish took" << (elapsedTimer.elapsed() - distinguishStartTime) << "milliseconds";
     
     return true;
 }
