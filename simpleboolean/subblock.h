@@ -15,7 +15,7 @@ public:
     std::map<std::array<size_t, 3>, int> faces;
     std::map<QString, std::map<int, bool>> cycles;
 
-    static void createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
+    static bool createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
         const std::vector<SubSurface> &secondSubSurfaces,
         std::vector<SubBlock> &subBlocks);
 };

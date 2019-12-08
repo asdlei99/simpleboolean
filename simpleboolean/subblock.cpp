@@ -1,170 +1,95 @@
 #include <simpleboolean/subblock.h>
 #include <QDebug>
 #include <queue>
+#include <array>
 
 namespace simpleboolean
 {
 
-void SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
+bool SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
         const std::vector<SubSurface> &secondSubSurfaces,
         std::vector<SubBlock> &subBlocks)
 {
-    struct SubSurfaceLink
-    {
-        const SubSurface *subSurface = nullptr;
-        int sourceMesh = -1;
-        int usedCount = 0;
-    };
+    if (firstSubSurfaces.empty() || firstSubSurfaces.size() != secondSubSurfaces.size())
+        return false;
     
-    std::vector<SubSurfaceLink *> subSurfaceLinks;
-    std::map<QString, std::vector<SubSurfaceLink>> subSurfaceMap;
-    for (const auto &subSurface: firstSubSurfaces) {
-        SubSurfaceLink link;
-        link.subSurface = &subSurface;
-        link.sourceMesh = 0;
-        subSurfaceMap[subSurface.edgeLoopName].push_back(link);
-    }
-    for (const auto &subSurface: secondSubSurfaces) {
-        SubSurfaceLink link;
-        link.subSurface = &subSurface;
-        link.sourceMesh = 1;
-        subSurfaceMap[subSurface.edgeLoopName].push_back(link);
-    }
-    for (auto &it: subSurfaceMap) {
-        for (auto &link: it.second)
-            subSurfaceLinks.push_back(&link);
-    }
+    using SubSurfaceNameMap = std::map<QString, std::array<std::array<const SubSurface *, 2>, 2>>;
     
-    std::map<std::pair<std::pair<QString, bool>, int>, SubSurfaceLink *> subSurfaceLinkMap;
-    for (auto &it: subSurfaceMap) {
-        for (auto &subIt: it.second) {
-            subSurfaceLinkMap[std::make_pair(std::make_pair(it.first, subIt.subSurface->isFrontSide),
-                subIt.sourceMesh)] = &subIt;
+    auto buildSubSurfaceNameMap = [](const std::vector<SubSurface> &subSurfaces,
+            size_t sourceMesh,
+            SubSurfaceNameMap &nameMap) {
+        for (const auto &subSurface: subSurfaces) {
+            if (subSurface.isFrontSide)
+                nameMap[subSurface.edgeLoopName][sourceMesh][0] = &subSurface;
+            else
+                nameMap[subSurface.edgeLoopName][sourceMesh][1] = &subSurface;
         }
-    }
-    
-    auto isLinkUsuable = [&](const SubSurfaceLink &link) {
-        if (link.usedCount > 1)
-            return false;
-        return true;
     };
+    SubSurfaceNameMap subSurfaceNameMap;
+    buildSubSurfaceNameMap(firstSubSurfaces, 0, subSurfaceNameMap);
+    buildSubSurfaceNameMap(secondSubSurfaces, 1, subSurfaceNameMap);
     
-    std::vector<SubSurfaceLink *> subSurfacesContributeToMesh;
-    for (auto &it: subSurfaceLinks) {
-        if (!isLinkUsuable(*it))
-            continue;
-        std::queue<SubSurfaceLink *> links;
-        links.push(it);
-        SubBlock subBlock;
-        std::set<std::pair<QString, int>> cycles;
-        std::set<SubSurfaceLink *> visited;
-        std::map<QString, int> cycleUsedNumMap;
-        std::set<SubSurfaceLink *> usedCountChangedLinks;
-        while (!links.empty()) {
-            SubSurfaceLink *link = links.front();
-            links.pop();
-            if (visited.find(link) != visited.end())
+    std::map<QString, std::map<int, bool>> cyclesTemplate;
+    std::set<std::pair<QString, size_t>> visited;
+    for (size_t firstSubSurfaceIndex = 0; firstSubSurfaceIndex < firstSubSurfaces.size(); ++firstSubSurfaceIndex) {
+        std::queue<std::tuple<QString, size_t, size_t>> waitCycles;
+        const auto &firstSubSurface = firstSubSurfaces[firstSubSurfaceIndex];
+        waitCycles.push({firstSubSurface.edgeLoopName, 0, firstSubSurface.isFrontSide ? 0 : 1});
+        while (!waitCycles.empty()) {
+            auto cycle = waitCycles.front();
+            waitCycles.pop();
+            const auto &cycleName = std::get<0>(cycle);
+            const auto &sourceMesh = std::get<1>(cycle);
+            if (visited.find(std::make_pair(cycleName, sourceMesh)) != visited.end())
                 continue;
-            visited.insert(link);
-            auto &fromSubSurface = *link->subSurface;
-            bool areAllSubSurfaceUsable = true;
-            for (const auto &edgeLoopName: fromSubSurface.ownerNames) {
-                if (!isLinkUsuable(*subSurfaceLinkMap[std::make_pair(edgeLoopName, link->sourceMesh)])) {
-                    areAllSubSurfaceUsable = false;
-                    break;
-                }
+            visited.insert(std::make_pair(cycleName, sourceMesh));
+            auto oppositeMesh = 0 == sourceMesh ? 1 : 0;
+            const auto &sideIndex = std::get<2>(cycle);
+            auto &mapItem = subSurfaceNameMap[cycleName];
+            const SubSurface *currentSubSurface = mapItem[sourceMesh][sideIndex];
+            if (nullptr == currentSubSurface) {
+                qDebug() << "Found invalid cycle";
+                return false;
             }
-            bool cycleExisted = false;
-            if (areAllSubSurfaceUsable) {
-                for (const auto &edgeLoopName: fromSubSurface.ownerNames) {
-                    if (cycles.find(std::make_pair(edgeLoopName.first,
-                            link->sourceMesh)) != cycles.end()) {
-                        cycleExisted = true;
-                        break;
-                    }
-                }
-            }
-            if (areAllSubSurfaceUsable && !cycleExisted) {
-                for (const auto &edgeLoopName: fromSubSurface.ownerNames) {
-                    auto &neighbor = subSurfaceLinkMap[std::make_pair(edgeLoopName, link->sourceMesh)];
-                    neighbor->usedCount++;
-                    usedCountChangedLinks.insert(neighbor);
-                    cycles.insert(std::make_pair(edgeLoopName.first, link->sourceMesh));
-                    cycleUsedNumMap[edgeLoopName.first]++;
-                }
-                subSurfacesContributeToMesh.push_back(link);
-            }
-            for (const auto &edgeLoopName: fromSubSurface.ownerNames) {
-                for (auto &condidate: subSurfaceMap[edgeLoopName.first]) {
-                    if (visited.find(&condidate) != visited.end())
-                        continue;
-                    links.push(&condidate);
-                }
-            }
-        }
-        if (!subSurfacesContributeToMesh.empty()) {
-            bool pass = true;
-            for (auto &itCheckCycle: subSurfaceMap) {
-                auto findUsedNum = cycleUsedNumMap.find(itCheckCycle.first);
-                if (findUsedNum == cycleUsedNumMap.end()) {
-                    pass = false;
-                    break;
-                }
-                if (findUsedNum->second != 2) {
-                    pass = false;
-                    break;
-                }
-            }
-            if (pass) {
-                break;
-            } else {
-                subSurfacesContributeToMesh.clear();
-                for (const auto &link: usedCountChangedLinks) {
-                    --link->usedCount;
-                }
+            for (const auto &neighbor: currentSubSurface->ownerNames) {
+                cyclesTemplate[neighbor.first].insert({sourceMesh, neighbor.second});
+                waitCycles.push({neighbor.first, oppositeMesh, !neighbor.second});
+                //auto neighborSideIndex = neighbor.second ? 0 : 1;
+                //const SubSurface *neighborSubSurface = mapItem[sourceMesh][neighborSideIndex];
+                //for (const auto &neighborNeighbor: neighborSubSurface->ownerNames) {
+                //    waitCycles.push({neighborNeighbor.first, oppositeMesh, !neighborNeighbor.second});
+                //}
             }
         }
     }
-    
-    if (subSurfacesContributeToMesh.empty())
-        return;
-    
-    auto subSurfacesToSubBlock = [&](const std::vector<SubSurfaceLink *> &links) {
+    auto createSubBlockFromTemplate = [&](const std::map<QString, std::map<int, bool>> &cycles,
+            bool flipFirst, bool flipSecond) {
         SubBlock subBlock;
-        for (const auto &link: links) {
-            auto &fromSubSurface = *link->subSurface;
-            for (const auto &face: fromSubSurface.faces) {
-                subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, link->sourceMesh});
+        for (const auto &cycle: cycles) {
+            for (const auto &side: cycle.second) {
+                const auto &sourceMesh = side.first;
+                auto isFrontSide = side.second;
+                if ((0 == sourceMesh && flipFirst) ||
+                        (1 == sourceMesh && flipSecond)) {
+                    isFrontSide = !isFrontSide;
+                }
+                const auto &sideIndex = isFrontSide ? 0 : 1;
+                auto &mapItem = subSurfaceNameMap[cycle.first];
+                const SubSurface *currentSubSurface = mapItem[sourceMesh][sideIndex];
+                for (const auto &face: currentSubSurface->faces) {
+                    subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, sourceMesh});
+                }
+                subBlock.cycles[cycle.first].insert({sourceMesh, isFrontSide});
             }
-            subBlock.cycles[link->subSurface->edgeLoopName].insert(std::make_pair(link->sourceMesh,
-                link->subSurface->isFrontSide));
         }
         return subBlock;
     };
-
-    auto createSubBlockFromTemplate = [&](const std::vector<SubSurfaceLink *> &links,
-            bool flipFirst, bool flipSecond) {
-        if (!flipFirst && !flipSecond)
-            return subSurfacesToSubBlock(links);
-        std::vector<SubSurfaceLink *> modifiedLinks;
-        for (auto &link: links) {
-            if ((0 == link->sourceMesh && !flipFirst) ||
-                    (1 == link->sourceMesh && !flipSecond)) {
-                modifiedLinks.push_back(link);
-                continue;
-            }
-            for (const auto &edgeLoopName: link->subSurface->ownerNames) {
-                auto oppositeLink = subSurfaceLinkMap[std::make_pair(std::make_pair(edgeLoopName.first,
-                    !edgeLoopName.second), link->sourceMesh)];
-                modifiedLinks.push_back(oppositeLink);
-            }
-        }
-        return subSurfacesToSubBlock(modifiedLinks);
-    };
-    subBlocks.push_back(createSubBlockFromTemplate(subSurfacesContributeToMesh, false, false));
-    subBlocks.push_back(createSubBlockFromTemplate(subSurfacesContributeToMesh, true, false));
-    subBlocks.push_back(createSubBlockFromTemplate(subSurfacesContributeToMesh, false, true));
-    subBlocks.push_back(createSubBlockFromTemplate(subSurfacesContributeToMesh, true, true));
+    subBlocks.push_back(createSubBlockFromTemplate(cyclesTemplate, false, false));
+    subBlocks.push_back(createSubBlockFromTemplate(cyclesTemplate, true, false));
+    subBlocks.push_back(createSubBlockFromTemplate(cyclesTemplate, false, true));
+    subBlocks.push_back(createSubBlockFromTemplate(cyclesTemplate, true, true));
+    
+    return true;
 }
 
 }

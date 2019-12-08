@@ -32,24 +32,44 @@ int main(int argc, char *argv[])
     if (combineSucceed)
         qDebug() << "Simpleboolean took" << (elapsedTimer.elapsed() - simpleBooleanStartTime) << "milliseconds";
     
-    simpleboolean::Mesh subBlocksMesh;
-    for (size_t i = 0; i < combiner.m_debugSubBlocks.size(); ++i) {
-        const auto &subBlock = combiner.m_debugSubBlocks[i];
-        size_t startVertexIndex = subBlocksMesh.vertices.size();
-        for (const auto &vertex: subBlock.vertices) {
-            auto newVertex = vertex;
-            newVertex.xyz[0] += i * 1.0 - (combiner.m_debugSubBlocks.size() / 2);
-            subBlocksMesh.vertices.push_back(newVertex);
+    auto collectMeshesToList = [&](const std::vector<simpleboolean::Mesh> &meshes) {
+        simpleboolean::Mesh subBlocksMesh;
+        for (size_t i = 0; i < meshes.size(); ++i) {
+            const auto &subBlock = meshes[i];
+            size_t startVertexIndex = subBlocksMesh.vertices.size();
+            for (const auto &vertex: subBlock.vertices) {
+                auto newVertex = vertex;
+                newVertex.xyz[0] += i * 1.0 - (meshes.size() / 2);
+                subBlocksMesh.vertices.push_back(newVertex);
+            }
+            for (const auto &face: subBlock.faces) {
+                auto newFace = face;
+                newFace.indices[0] += startVertexIndex;
+                newFace.indices[1] += startVertexIndex;
+                newFace.indices[2] += startVertexIndex;
+                subBlocksMesh.faces.push_back(newFace);
+            }
         }
-        for (const auto &face: subBlock.faces) {
-            auto newFace = face;
-            newFace.indices[0] += startVertexIndex;
-            newFace.indices[1] += startVertexIndex;
-            newFace.indices[2] += startVertexIndex;
-            subBlocksMesh.faces.push_back(newFace);
-        }
-    }
+        return subBlocksMesh;
+    };
+    auto subBlocksMesh = collectMeshesToList(combiner.m_debugSubBlocks);
     exportTriangulatedObj(subBlocksMesh, QString("/Users/jeremy/Desktop/debug-subblock-list.obj"));
+    
+    if (combineSucceed) {
+        simpleboolean::Mesh unionMesh;
+        simpleboolean::Mesh intersectionMesh;
+        simpleboolean::Mesh subtractionMesh;
+        simpleboolean::Mesh inversedSubtractionMesh;
+        combiner.getResult(simpleboolean::Type::Union, &unionMesh);
+        combiner.getResult(simpleboolean::Type::Intersection, &intersectionMesh);
+        combiner.getResult(simpleboolean::Type::Subtraction, &subtractionMesh);
+        combiner.getResult(simpleboolean::Type::InversedSubtraction, &inversedSubtractionMesh);
+        std::vector<simpleboolean::Mesh> meshes = {
+            unionMesh, intersectionMesh, subtractionMesh, inversedSubtractionMesh
+        };
+        auto booleanListMesh = collectMeshesToList(meshes);
+        exportTriangulatedObj(booleanListMesh, QString("/Users/jeremy/Desktop/debug-boolean-list.obj"));
+    }
     
     if (!combineSucceed)
         return 1;

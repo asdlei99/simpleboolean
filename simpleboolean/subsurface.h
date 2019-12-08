@@ -19,9 +19,10 @@ public:
     std::set<std::pair<QString, bool>> ownerNames;
     
     static QString createEdgeLoopName(const std::vector<size_t> &edgeLoop);
-    static void createSubSurfaces(const std::vector<std::vector<size_t>> &edgeLoops,
+    static void createSubSurfaces(std::vector<std::vector<size_t>> &edgeLoops,
         const std::vector<Face> &triangles,
-        std::vector<SubSurface> &subSurfaces);
+        std::vector<SubSurface> &subSurfaces,
+        bool reviseEdgeLoopsDirection=false);
 };
 
 }
