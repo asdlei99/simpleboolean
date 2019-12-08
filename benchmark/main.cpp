@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
 
     const char *firstObj = "/Users/jeremy/Repositories/simpleboolean/models/addax.obj";
-    const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/meerkat-with-extra.obj";
+    const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/meerkat.obj";
 
     simpleboolean::Mesh mesh1;
     simpleboolean::Mesh mesh2;

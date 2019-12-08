@@ -27,6 +27,8 @@ void MeshCombiner::setMeshes(const Mesh &first, const Mesh &second)
     m_secondMesh = second;
     m_firstMeshFaceAABBs.resize(m_firstMesh.faces.size());
     m_secondMeshFaceAABBs.resize(m_secondMesh.faces.size());
+    m_firstOldToNewVertexMap.resize(m_firstMesh.faces.size());
+    m_secondOldToNewVertexMap.resize(m_secondMesh.faces.size());
     for (size_t i = 0; i < m_firstMesh.faces.size(); ++i) {
         addFaceToAxisAlignedBoundingBox(m_firstMesh, m_firstMesh.faces[i], m_firstMeshFaceAABBs[i]);
         m_firstMeshFaceAABBs[i].updateCenter();
@@ -115,16 +117,34 @@ std::tuple<int, int, int> MeshCombiner::vertexToKey(const Vertex &vertex)
     };
 }
 
-size_t MeshCombiner::newVertexToIndex(const Vertex &vertex)
+size_t MeshCombiner::newVertexToIndex(const Vertex &vertex, std::pair<size_t, size_t> oldVertex)
 {
-    const auto &key = vertexToKey(vertex);
+    if (0 == oldVertex.first) {
+        auto key = vertexToKey(vertex);
+        const auto &findResult = m_newVertexToIndexMap.find(key);
+        if (findResult != m_newVertexToIndexMap.end()) {
+            return findResult->second;
+        }
+        size_t newIndex = m_newVertices.size();
+        m_newVertexToIndexMap.insert({key, newIndex});
+        m_newVertices.push_back(vertex);
+        return newIndex;
+    }
+    auto &oldToNewMap = (1 == oldVertex.first) ?
+        m_firstOldToNewVertexMap : m_secondOldToNewVertexMap;
+    auto &findNew = oldToNewMap[oldVertex.second];
+    if (findNew)
+        return findNew - 1;
+    auto key = vertexToKey(vertex);
     const auto &findResult = m_newVertexToIndexMap.find(key);
     if (findResult != m_newVertexToIndexMap.end()) {
+        findNew = findResult->second + 1;
         return findResult->second;
     }
     size_t newIndex = m_newVertices.size();
     m_newVertexToIndexMap.insert({key, newIndex});
     m_newVertices.push_back(vertex);
+    findNew = newIndex + 1;
     return newIndex;
 }
 
@@ -146,16 +166,16 @@ bool MeshCombiner::combine()
     auto checkPotentialIntersectedPairsStartTime = elapsedTimer.elapsed();
     std::map<size_t, std::vector<std::pair<size_t, size_t>>> newEdgesPerTriangleInFirstMesh;
     std::map<size_t, std::vector<std::pair<size_t, size_t>>> newEdgesPerTriangleInSecondMesh;
-    std::set<size_t> reTriangulatedFacesInFirstMesh;
-    std::set<size_t> reTriangulatedFacesInSecondMesh;
+    std::vector<bool> reTriangulatedFacesInFirstMesh(m_firstMesh.faces.size());
+    std::vector<bool> reTriangulatedFacesInSecondMesh(m_secondMesh.faces.size());
     for (const auto &pair: *m_potentialIntersectedPairs) {
         std::pair<Vertex, Vertex> newEdge;
         if (intersectTwoFaces(pair.first, pair.second, newEdge)) {
             if (vertexToKey(newEdge.first) == vertexToKey(newEdge.second))
                 continue;
             std::pair<size_t, size_t> newVertexPair = {
-                newVertexToIndex(newEdge.first),
-                newVertexToIndex(newEdge.second)
+                newVertexToIndex(newEdge.first, std::make_pair(0, 0)),
+                newVertexToIndex(newEdge.second, std::make_pair(0, 0))
             };
             std::pair<size_t, size_t> newVertexOppositePair = {
                 newVertexPair.second,
@@ -167,22 +187,23 @@ bool MeshCombiner::combine()
 
             newEdgesPerTriangleInFirstMesh[pair.first].push_back(newVertexOppositePair);
             newEdgesPerTriangleInSecondMesh[pair.second].push_back(newVertexOppositePair);
-
-            reTriangulatedFacesInFirstMesh.insert(pair.first);
-            reTriangulatedFacesInSecondMesh.insert(pair.second);
+            
+            reTriangulatedFacesInFirstMesh[pair.first] = true;
+            reTriangulatedFacesInSecondMesh[pair.second] = true;
         }
     }
     qDebug() << "Check potential intersected pairs took" << (elapsedTimer.elapsed() - checkPotentialIntersectedPairsStartTime) << "milliseconds";
-    auto doReTriangulation = [&](const Mesh *mesh, const std::map<size_t, std::vector<std::pair<size_t, size_t>>> &newEdgesPerTriangle, std::vector<Face> &toTriangles, std::vector<std::vector<size_t>> &edgeLoops) {
+    auto doReTriangulation = [&](const Mesh *mesh, const std::map<size_t, std::vector<std::pair<size_t, size_t>>> &newEdgesPerTriangle, std::vector<Face> &toTriangles, std::vector<std::vector<size_t>> &edgeLoops,
+            size_t meshIndex) {
         for (const auto &it: newEdgesPerTriangle) {
             const auto &face = mesh->faces[it.first];
             const std::vector<std::pair<size_t, size_t>> &newEdges = it.second;
             std::vector<std::vector<size_t>> edgeLoopsPerFace;
             groupEdgesToLoops(newEdges, edgeLoopsPerFace);
             std::vector<size_t> triangleVertices = {
-                newVertexToIndex(mesh->vertices[face.indices[0]]),
-                newVertexToIndex(mesh->vertices[face.indices[1]]),
-                newVertexToIndex(mesh->vertices[face.indices[2]]),
+                newVertexToIndex(mesh->vertices[face.indices[0]], std::make_pair(meshIndex + 1, face.indices[0])),
+                newVertexToIndex(mesh->vertices[face.indices[1]], std::make_pair(meshIndex + 1, face.indices[1])),
+                newVertexToIndex(mesh->vertices[face.indices[2]], std::make_pair(meshIndex + 1, face.indices[2])),
             };
             ReTriangulation re(m_newVertices, triangleVertices, edgeLoopsPerFace);
             re.reTriangulate();
@@ -195,16 +216,17 @@ bool MeshCombiner::combine()
             }
         }
     };
-    auto addUnIntersectedFaces = [&](const Mesh *mesh, const std::set<size_t> &reTriangulatedFaces,
-            std::vector<Face> &toTriangles) {
+    auto addUnIntersectedFaces = [&](const Mesh *mesh, const std::vector<bool> &reTriangulatedFaces,
+            std::vector<Face> &toTriangles,
+            size_t meshIndex) {
         for (size_t i = 0; i < mesh->faces.size(); ++i) {
-            if (reTriangulatedFaces.find(i) != reTriangulatedFaces.end())
+            if (reTriangulatedFaces[i])
                 continue;
             const auto &face = mesh->faces[i];
             Face triangle = {{
-                newVertexToIndex(mesh->vertices[face.indices[0]]),
-                newVertexToIndex(mesh->vertices[face.indices[1]]),
-                newVertexToIndex(mesh->vertices[face.indices[2]]),
+                newVertexToIndex(mesh->vertices[face.indices[0]], std::make_pair(meshIndex + 1, face.indices[0])),
+                newVertexToIndex(mesh->vertices[face.indices[1]], std::make_pair(meshIndex + 1, face.indices[1])),
+                newVertexToIndex(mesh->vertices[face.indices[2]], std::make_pair(meshIndex + 1, face.indices[2])),
             }};
             toTriangles.push_back(triangle);
         }
@@ -217,29 +239,31 @@ bool MeshCombiner::combine()
     {
         std::vector<std::vector<size_t>> edgeLoops;
         auto reTriangulationStartTime = elapsedTimer.elapsed();
-        doReTriangulation(&m_firstMesh, newEdgesPerTriangleInFirstMesh, m_firstTriangles, edgeLoops);
-        //qDebug() << "    Do retriangulation took" << (elapsedTimer.elapsed() - reTriangulationStartTime) << "milliseconds";
+        doReTriangulation(&m_firstMesh, newEdgesPerTriangleInFirstMesh, m_firstTriangles, edgeLoops, 0);
+        qDebug() << "    Do retriangulation took" << (elapsedTimer.elapsed() - reTriangulationStartTime) << "milliseconds";
         auto addUnIntersectedStartTime = elapsedTimer.elapsed();
-        addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, m_firstTriangles);
-        //qDebug() << "    Add unintsersected took" << (elapsedTimer.elapsed() - addUnIntersectedStartTime) << "milliseconds";
+        addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, m_firstTriangles, 0);
+        qDebug() << "    Add unintsersected took" << (elapsedTimer.elapsed() - addUnIntersectedStartTime) << "milliseconds";
         EdgeLoop::merge(edgeLoops, &firstMergedEdgeLoops);
         auto createSubSurfacesStartTime = elapsedTimer.elapsed();
         m_firstVisitedTriangles.resize(m_firstTriangles.size(), false);
         SubSurface::createSubSurfaces(firstMergedEdgeLoops, m_firstTriangles, m_firstVisitedTriangles, firstSubSurfaces, true);
-        //qDebug() << "    Create subsurfaces took" << (elapsedTimer.elapsed() - createSubSurfacesStartTime) << "milliseconds";
+        qDebug() << "    Create subsurfaces took" << (elapsedTimer.elapsed() - createSubSurfacesStartTime) << "milliseconds";
     }
     {
         std::vector<std::vector<size_t>> edgeLoops;
-        doReTriangulation(&m_secondMesh, newEdgesPerTriangleInSecondMesh, m_secondTriangles, edgeLoops);
-        addUnIntersectedFaces(&m_secondMesh, reTriangulatedFacesInSecondMesh, m_secondTriangles);
+        auto reTriangulationStartTime = elapsedTimer.elapsed();
+        doReTriangulation(&m_secondMesh, newEdgesPerTriangleInSecondMesh, m_secondTriangles, edgeLoops, 1);
+        qDebug() << "    Do retriangulation took" << (elapsedTimer.elapsed() - reTriangulationStartTime) << "milliseconds";
+        auto addUnIntersectedStartTime = elapsedTimer.elapsed();
+        addUnIntersectedFaces(&m_secondMesh, reTriangulatedFacesInSecondMesh, m_secondTriangles, 1);
+        qDebug() << "    Add unintsersected took" << (elapsedTimer.elapsed() - addUnIntersectedStartTime) << "milliseconds";
         EdgeLoop::merge(edgeLoops, &secondMergedEdgeLoops);
+        auto createSubSurfacesStartTime = elapsedTimer.elapsed();
         EdgeLoop::unifyDirection(firstMergedEdgeLoops, &secondMergedEdgeLoops);
-        //qDebug() << "firstMergedEdgeLoops.size:" << firstMergedEdgeLoops.size();
-        //qDebug() << "secondMergedEdgeLoops.size:" << secondMergedEdgeLoops.size();
-        //qDebug() << "firstMergedEdgeLoops:" << firstMergedEdgeLoops;
-        //qDebug() << "secondMergedEdgeLoops:" << secondMergedEdgeLoops;
         m_secondVisitedTriangles.resize(m_secondTriangles.size(), false);
         SubSurface::createSubSurfaces(secondMergedEdgeLoops, m_secondTriangles, m_secondVisitedTriangles, secondSubSurfaces, false);
+        qDebug() << "    Create subsurfaces took" << (elapsedTimer.elapsed() - createSubSurfacesStartTime) << "milliseconds";
     }
     qDebug() << "Create subsurfaces and others took" << (elapsedTimer.elapsed() - createSubSurfacesAndOthersStartTime) << "milliseconds";
     

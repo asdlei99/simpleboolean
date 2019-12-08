@@ -23,11 +23,13 @@ private:
     void addMeshToAxisAlignedBoundingBox(const Mesh &mesh, AxisAlignedBoudingBox &box);
     void addFaceToAxisAlignedBoundingBox(const Mesh &mesh, const Face &face, AxisAlignedBoudingBox &box);
     std::tuple<int, int, int> vertexToKey(const Vertex &vertex);
-    size_t newVertexToIndex(const Vertex &vertex);
+    size_t newVertexToIndex(const Vertex &vertex, std::pair<size_t, size_t> oldVertex);
     void groupEdgesToLoops(const std::vector<std::pair<size_t, size_t>> &edges,
         std::vector<std::vector<size_t>> &edgeLoops);
     Mesh m_firstMesh;
     Mesh m_secondMesh;
+    std::vector<size_t> m_firstOldToNewVertexMap;
+    std::vector<size_t> m_secondOldToNewVertexMap;
     std::vector<Face> m_firstTriangles;
     std::vector<bool> m_firstVisitedTriangles;
     std::vector<Face> m_secondTriangles;
