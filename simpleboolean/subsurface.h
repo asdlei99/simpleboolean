@@ -21,6 +21,7 @@ public:
     static QString createEdgeLoopName(const std::vector<size_t> &edgeLoop);
     static void createSubSurfaces(std::vector<std::vector<size_t>> &edgeLoops,
         const std::vector<Face> &triangles,
+        std::vector<bool> &visitedTriangles,
         std::vector<SubSurface> &subSurfaces,
         bool reviseEdgeLoopsDirection=false);
 };

@@ -54,11 +54,6 @@ bool SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
             for (const auto &neighbor: currentSubSurface->ownerNames) {
                 cyclesTemplate[neighbor.first].insert({sourceMesh, neighbor.second});
                 waitCycles.push({neighbor.first, oppositeMesh, !neighbor.second});
-                //auto neighborSideIndex = neighbor.second ? 0 : 1;
-                //const SubSurface *neighborSubSurface = mapItem[sourceMesh][neighborSideIndex];
-                //for (const auto &neighborNeighbor: neighborSubSurface->ownerNames) {
-                //    waitCycles.push({neighborNeighbor.first, oppositeMesh, !neighborNeighbor.second});
-                //}
             }
         }
     }

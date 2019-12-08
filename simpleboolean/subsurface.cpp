@@ -22,6 +22,7 @@ QString SubSurface::createEdgeLoopName(const std::vector<size_t> &edgeLoop)
 
 void SubSurface::createSubSurfaces(std::vector<std::vector<size_t>> &edgeLoops,
         const std::vector<Face> &triangles,
+        std::vector<bool> &visitedTriangles,
         std::vector<SubSurface> &subSurfaces,
         bool reviseEdgeLoopsDirection)
 {
@@ -64,7 +65,6 @@ void SubSurface::createSubSurfaces(std::vector<std::vector<size_t>> &edgeLoops,
     }
     //qDebug() << "Create edgeloopnames took" << (elapsedTimer.elapsed() - createEdgeLoopNamesStartTime) << "milliseconds";
     
-    std::vector<bool> visitedTriangles(triangles.size(), false);
     std::set<size_t> visitedEdgeLoops;
     std::queue<size_t> edgeLoopQueue;
     

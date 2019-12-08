@@ -28,6 +28,10 @@ private:
         std::vector<std::vector<size_t>> &edgeLoops);
     Mesh m_firstMesh;
     Mesh m_secondMesh;
+    std::vector<Face> m_firstTriangles;
+    std::vector<bool> m_firstVisitedTriangles;
+    std::vector<Face> m_secondTriangles;
+    std::vector<bool> m_secondVisitedTriangles;
     static int m_vertexToKeyMultiplyFactor;
     std::vector<AxisAlignedBoudingBox> m_firstMeshFaceAABBs;
     std::vector<AxisAlignedBoudingBox> m_secondMeshFaceAABBs;
