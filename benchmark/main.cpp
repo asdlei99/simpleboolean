@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
 
     const char *firstObj = "/Users/jeremy/Repositories/simpleboolean/models/addax.obj";
-    const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/meerkat.obj";
+    const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/giraffe.obj";
     
     //const char *firstObj = "/Users/jeremy/Repositories/simpleboolean/models/box.obj";
     //const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/subdived-box.obj";
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
             mesh.faces = it.faces;
             subSurfaceMeshes.push_back(mesh);
         }
-        exportTriangulatedObj(collectMeshesToList(subSurfaceMeshes, 0.2), QString("/Users/jeremy/Desktop/debug-subsurfaces-first.obj"));
+        exportTriangulatedObj(collectMeshesToList(subSurfaceMeshes, 0.3), QString("/Users/jeremy/Desktop/debug-subsurfaces-first.obj"));
     }
     
     {
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
             mesh.faces = it.faces;
             subSurfaceMeshes.push_back(mesh);
         }
-        exportTriangulatedObj(collectMeshesToList(subSurfaceMeshes, 0.2), QString("/Users/jeremy/Desktop/debug-subsurfaces-second.obj"));
+        exportTriangulatedObj(collectMeshesToList(subSurfaceMeshes, 0.3), QString("/Users/jeremy/Desktop/debug-subsurfaces-second.obj"));
     }
     
     if (combineSucceed) {

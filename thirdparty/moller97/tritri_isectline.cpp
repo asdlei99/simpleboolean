@@ -35,7 +35,7 @@
    else no check is done (which is less robust)
 */
 #define USE_EPSILON_TEST TRUE  
-#define EPSILON 0.00000001
+const float EPSILON = std::numeric_limits<float>::epsilon();
 
 
 /* some macros */
