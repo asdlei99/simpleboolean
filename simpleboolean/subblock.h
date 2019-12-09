@@ -13,7 +13,7 @@ class SubBlock
 {
 public:
     std::map<std::array<size_t, 3>, int> faces;
-    std::map<QString, std::map<int, bool>> cycles;
+    std::map<size_t, std::map<int, bool>> cycles;
 
     static bool createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
         const std::vector<SubSurface> &secondSubSurfaces,

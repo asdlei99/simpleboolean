@@ -13,6 +13,7 @@ void EdgeLoop::merge(const std::vector<std::vector<size_t>> &sourceEdgeLoops,
     std::vector<std::pair<size_t, size_t>> edges;
     for (size_t m = 0; m < sourceEdgeLoops.size(); ++m) {
         const auto &source = sourceEdgeLoops[m];
+        //qDebug() << "source[" << m << "]:" << source;
         if (source.front() == source.back()) {
             auto newEdgeLoop = source;
             newEdgeLoop.pop_back();
@@ -25,6 +26,9 @@ void EdgeLoop::merge(const std::vector<std::vector<size_t>> &sourceEdgeLoops,
         }
     }
     buildEdgeLoopsFromDirectedEdges(edges, targetEdgeLoops, false, false);
+    //for (size_t i = 0; i < targetEdgeLoops->size(); ++i) {
+    //    qDebug() << "target[" << i << "]:" << (*targetEdgeLoops)[i];
+    //}
 }
 
 void EdgeLoop::buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_t, size_t>> &edges,
@@ -58,7 +62,7 @@ void EdgeLoop::buildEdgeLoopsFromDirectedEdges(const std::vector<std::pair<size_
         visitedEdges.insert(currentEdge);
         if (!allowOppositeEdgeLoop) {
             if (visitedEdges.find(std::make_pair(currentEdge.second, currentEdge.first)) != visitedEdges.end()) {
-                //qDebug() << "Ignore edge because of opposite edge exists:" << edge;
+                //qDebug() << "Ignore edge because of opposite edge exists:" << currentEdge;
                 continue;
             }
         }

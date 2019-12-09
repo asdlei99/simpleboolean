@@ -15,6 +15,9 @@ int main(int argc, char *argv[])
 
     const char *firstObj = "/Users/jeremy/Repositories/simpleboolean/models/addax.obj";
     const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/meerkat.obj";
+    
+    //const char *firstObj = "/Users/jeremy/Repositories/simpleboolean/models/box.obj";
+    //const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/subdived-box.obj";
 
     simpleboolean::Mesh mesh1;
     simpleboolean::Mesh mesh2;
@@ -32,14 +35,14 @@ int main(int argc, char *argv[])
     if (combineSucceed)
         qDebug() << "Simpleboolean took" << (elapsedTimer.elapsed() - simpleBooleanStartTime) << "milliseconds";
     
-    auto collectMeshesToList = [&](const std::vector<simpleboolean::Mesh> &meshes) {
+    auto collectMeshesToList = [&](const std::vector<simpleboolean::Mesh> &meshes, float interval=1.0) {
         simpleboolean::Mesh subBlocksMesh;
         for (size_t i = 0; i < meshes.size(); ++i) {
             const auto &subBlock = meshes[i];
             size_t startVertexIndex = subBlocksMesh.vertices.size();
             for (const auto &vertex: subBlock.vertices) {
                 auto newVertex = vertex;
-                newVertex.xyz[0] += i * 1.0 - (meshes.size() / 2);
+                newVertex.xyz[0] += ((int)i - ((int)meshes.size() / 2)) * interval;
                 subBlocksMesh.vertices.push_back(newVertex);
             }
             for (const auto &face: subBlock.faces) {
@@ -54,6 +57,36 @@ int main(int argc, char *argv[])
     };
     auto subBlocksMesh = collectMeshesToList(combiner.m_debugSubBlocks);
     exportTriangulatedObj(subBlocksMesh, QString("/Users/jeremy/Desktop/debug-subblock-list.obj"));
+    
+    {
+        std::vector<simpleboolean::Mesh> debugMeshes = {
+            combiner.m_debugFirstMesh, combiner.m_debugSecondMesh
+        };
+        auto debugMesh = collectMeshesToList(debugMeshes);
+        exportTriangulatedObj(debugMesh, QString("/Users/jeremy/Desktop/debug-list.obj"));
+    }
+    
+    {
+        std::vector<simpleboolean::Mesh> subSurfaceMeshes;
+        for (const auto &it: combiner.m_firstSubSurfaces) {
+            simpleboolean::Mesh mesh;
+            mesh.vertices = combiner.m_newVertices;
+            mesh.faces = it.faces;
+            subSurfaceMeshes.push_back(mesh);
+        }
+        exportTriangulatedObj(collectMeshesToList(subSurfaceMeshes, 0.2), QString("/Users/jeremy/Desktop/debug-subsurfaces-first.obj"));
+    }
+    
+    {
+        std::vector<simpleboolean::Mesh> subSurfaceMeshes;
+        for (const auto &it: combiner.m_secondSubSurfaces) {
+            simpleboolean::Mesh mesh;
+            mesh.vertices = combiner.m_newVertices;
+            mesh.faces = it.faces;
+            subSurfaceMeshes.push_back(mesh);
+        }
+        exportTriangulatedObj(collectMeshesToList(subSurfaceMeshes, 0.2), QString("/Users/jeremy/Desktop/debug-subsurfaces-second.obj"));
+    }
     
     if (combineSucceed) {
         simpleboolean::Mesh unionMesh;
@@ -96,14 +129,12 @@ int main(int argc, char *argv[])
     auto cgalStartTime = elapsedTimer.elapsed();
     CGAL::Polygon_mesh_processing::corefine_and_compute_union(*cgalMesh1, *cgalMesh2, *resultCgalMesh);
     qDebug() << "CGAL took" << (elapsedTimer.elapsed() - cgalStartTime) << "milliseconds";
-    /*
     {
         std::vector<QVector3D> vertices;
         std::vector<std::vector<size_t>> faces;
         fetchFromCgalMesh<CgalKernel>(resultCgalMesh, vertices, faces);
         nodemesh::exportMeshAsObj(vertices, faces, "/Users/jeremy/Desktop/cgal.obj");
     }
-    */
     
     return 0;
 }

@@ -232,10 +232,7 @@ bool MeshCombiner::combine()
         }
     };
     auto createSubSurfacesAndOthersStartTime = elapsedTimer.elapsed();
-    std::vector<SubSurface> firstSubSurfaces;
-    std::vector<SubSurface> secondSubSurfaces;
     std::vector<std::vector<size_t>> firstMergedEdgeLoops;
-    std::vector<std::vector<size_t>> secondMergedEdgeLoops;
     {
         std::vector<std::vector<size_t>> edgeLoops;
         auto reTriangulationStartTime = elapsedTimer.elapsed();
@@ -243,11 +240,13 @@ bool MeshCombiner::combine()
         qDebug() << "    Do retriangulation took" << (elapsedTimer.elapsed() - reTriangulationStartTime) << "milliseconds";
         auto addUnIntersectedStartTime = elapsedTimer.elapsed();
         addUnIntersectedFaces(&m_firstMesh, reTriangulatedFacesInFirstMesh, m_firstTriangles, 0);
+        m_debugFirstMesh.vertices = m_newVertices;
+        m_debugFirstMesh.faces = m_firstTriangles;
         qDebug() << "    Add unintsersected took" << (elapsedTimer.elapsed() - addUnIntersectedStartTime) << "milliseconds";
         EdgeLoop::merge(edgeLoops, &firstMergedEdgeLoops);
         auto createSubSurfacesStartTime = elapsedTimer.elapsed();
         m_firstVisitedTriangles.resize(m_firstTriangles.size(), false);
-        SubSurface::createSubSurfaces(firstMergedEdgeLoops, m_firstTriangles, m_firstVisitedTriangles, firstSubSurfaces, true);
+        SubSurface::createSubSurfaces(firstMergedEdgeLoops, m_firstTriangles, m_firstVisitedTriangles, m_firstSubSurfaces);
         qDebug() << "    Create subsurfaces took" << (elapsedTimer.elapsed() - createSubSurfacesStartTime) << "milliseconds";
     }
     {
@@ -257,18 +256,20 @@ bool MeshCombiner::combine()
         qDebug() << "    Do retriangulation took" << (elapsedTimer.elapsed() - reTriangulationStartTime) << "milliseconds";
         auto addUnIntersectedStartTime = elapsedTimer.elapsed();
         addUnIntersectedFaces(&m_secondMesh, reTriangulatedFacesInSecondMesh, m_secondTriangles, 1);
+        m_debugSecondMesh.vertices = m_newVertices;
+        m_debugSecondMesh.faces = m_secondTriangles;
         qDebug() << "    Add unintsersected took" << (elapsedTimer.elapsed() - addUnIntersectedStartTime) << "milliseconds";
-        EdgeLoop::merge(edgeLoops, &secondMergedEdgeLoops);
+        //EdgeLoop::merge(edgeLoops, &secondMergedEdgeLoops);
         auto createSubSurfacesStartTime = elapsedTimer.elapsed();
-        EdgeLoop::unifyDirection(firstMergedEdgeLoops, &secondMergedEdgeLoops);
+        //EdgeLoop::unifyDirection(firstMergedEdgeLoops, &secondMergedEdgeLoops);
         m_secondVisitedTriangles.resize(m_secondTriangles.size(), false);
-        SubSurface::createSubSurfaces(secondMergedEdgeLoops, m_secondTriangles, m_secondVisitedTriangles, secondSubSurfaces, false);
+        SubSurface::createSubSurfaces(firstMergedEdgeLoops, m_secondTriangles, m_secondVisitedTriangles, m_secondSubSurfaces);
         qDebug() << "    Create subsurfaces took" << (elapsedTimer.elapsed() - createSubSurfacesStartTime) << "milliseconds";
     }
     qDebug() << "Create subsurfaces and others took" << (elapsedTimer.elapsed() - createSubSurfacesAndOthersStartTime) << "milliseconds";
     
     auto createSubBlocksStartTime = elapsedTimer.elapsed();
-    SubBlock::createSubBlocks(firstSubSurfaces, secondSubSurfaces, m_subBlocks);
+    SubBlock::createSubBlocks(m_firstSubSurfaces, m_secondSubSurfaces, m_subBlocks);
     qDebug() << "Create subblocks took" << (elapsedTimer.elapsed() - createSubBlocksStartTime) << "milliseconds";
     
     m_debugSubBlocks.resize(m_subBlocks.size());

@@ -17,6 +17,11 @@ public:
     void getResult(Type booleanType, Mesh *result);
     ~MeshCombiner();
     std::vector<Mesh> m_debugSubBlocks;
+    Mesh m_debugFirstMesh;
+    Mesh m_debugSecondMesh;
+    std::vector<SubSurface> m_firstSubSurfaces;
+    std::vector<SubSurface> m_secondSubSurfaces;
+    std::vector<Vertex> m_newVertices;
 private:
     void searchPotentialIntersectedPairs();
     bool intersectTwoFaces(size_t firstIndex, size_t secondIndex, std::pair<Vertex, Vertex> &newEdge);
@@ -37,7 +42,6 @@ private:
     static int m_vertexToKeyMultiplyFactor;
     std::vector<AxisAlignedBoudingBox> m_firstMeshFaceAABBs;
     std::vector<AxisAlignedBoudingBox> m_secondMeshFaceAABBs;
-    std::vector<Vertex> m_newVertices;
     std::map<std::tuple<int, int, int>, size_t> m_newVertexToIndexMap;
     std::vector<SubBlock> m_subBlocks;
     std::vector<int> m_indicesToSubBlocks;

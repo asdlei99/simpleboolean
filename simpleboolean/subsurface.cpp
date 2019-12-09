@@ -9,22 +9,10 @@
 namespace simpleboolean
 {
 
-QString SubSurface::createEdgeLoopName(const std::vector<size_t> &edgeLoop)
-{
-    QStringList stringList;
-    stringList.reserve(edgeLoop.size());
-    auto sortedEdgeLoop = edgeLoop;
-    std::sort(sortedEdgeLoop.begin(), sortedEdgeLoop.end());
-    for (const auto &it: sortedEdgeLoop)
-        stringList.append(QString::number(it));
-    return stringList.join(",");
-}
-
 void SubSurface::createSubSurfaces(std::vector<std::vector<size_t>> &edgeLoops,
         const std::vector<Face> &triangles,
         std::vector<bool> &visitedTriangles,
-        std::vector<SubSurface> &subSurfaces,
-        bool reviseEdgeLoopsDirection)
+        std::vector<SubSurface> &subSurfaces)
 {
     if (edgeLoops.empty())
         return;
@@ -55,140 +43,60 @@ void SubSurface::createSubSurfaces(std::vector<std::vector<size_t>> &edgeLoops,
             edgeToLoopMap.insert({std::make_pair(edgeLoop[j], edgeLoop[i]), std::make_pair(m, false)});
         }
     }
-    //qDebug() << "Create edgeloopmap took" << (elapsedTimer.elapsed() - createEdgeLoopMapStartTime) << "milliseconds";
     
-    auto createEdgeLoopNamesStartTime = elapsedTimer.elapsed();
-    std::vector<QString> edgeLoopNames(edgeLoops.size());
-    for (size_t edgeLoopIndex = 0; edgeLoopIndex < edgeLoops.size(); ++edgeLoopIndex) {
-        const auto &edgeLoop = edgeLoops[edgeLoopIndex];
-        edgeLoopNames[edgeLoopIndex] = createEdgeLoopName(edgeLoop);
-    }
-    //qDebug() << "Create edgeloopnames took" << (elapsedTimer.elapsed() - createEdgeLoopNamesStartTime) << "milliseconds";
-    
-    std::set<size_t> visitedEdgeLoops;
-    std::queue<size_t> edgeLoopQueue;
-    
-    auto buildSubSurfacesFromEdgeLoop = [&](size_t edgeLoopIndex) {
-        const auto &edgeLoop = edgeLoops[edgeLoopIndex];
-
-        const auto &edgeLoopName = edgeLoopNames[edgeLoopIndex];
-        
-        SubSurface frontSurface;
-        frontSurface.edgeLoopName = edgeLoopName;
-        frontSurface.isFrontSide = true;
-        frontSurface.ownerNames.insert(std::make_pair(frontSurface.edgeLoopName, frontSurface.isFrontSide));
-        
-        SubSurface backSurface;
-        backSurface.edgeLoopName = edgeLoopName;
-        backSurface.isFrontSide = false;
-        backSurface.ownerNames.insert(std::make_pair(backSurface.edgeLoopName, backSurface.isFrontSide));
-        
-        std::queue<size_t> frontTriangleIndices;
-        std::queue<size_t> backTriangleIndices;
-        
-        auto addFrontTriangle = [&](size_t triangleIndex) {
+    for (const auto &edgeToLoop: edgeToLoopMap) {
+        auto findTriangle = halfEdges.find(edgeToLoop.first);
+        if (findTriangle == halfEdges.end())
+            continue;
+        if (visitedTriangles[findTriangle->second])
+            continue;
+        std::queue<size_t> waitTriangles;
+        waitTriangles.push(findTriangle->second);
+        SubSurface subSurface;
+        subSurface.edgeLoopIndex = edgeToLoop.second.first;
+        subSurface.isFrontSide = edgeToLoop.second.second;
+        while (!waitTriangles.empty()) {
+            auto triangleIndex = waitTriangles.front();
+            waitTriangles.pop();
             if (visitedTriangles[triangleIndex])
-                return;
-            const auto &face = triangles[triangleIndex];
-            visitedTriangles[triangleIndex] = true;
-            frontSurface.faces.push_back(face);
-            for (size_t m = 0; m < 3; ++m) {
-                size_t n = (m + 1) % 3;
-                auto edge = std::make_pair(face.indices[n], face.indices[m]);
-                auto findEdgeLoop = edgeToLoopMap.find(edge);
-                if (findEdgeLoop != edgeToLoopMap.end()) {
-                    if (findEdgeLoop->second.first != edgeLoopIndex) {
-                        auto &edgeLoopName = edgeLoopNames[findEdgeLoop->second.first];
-                        if (reviseEdgeLoopsDirection) {
-                            if (findEdgeLoop->second.second != false) {
-                                edgeLoopFlippedMap[findEdgeLoop->second.first] = true;
-                                edgeLoopQueue.push(findEdgeLoop->second.first);
-                            }
-                        }
-                        frontSurface.ownerNames.insert(std::make_pair(edgeLoopName, false));
-                        frontSurface.isSharedByOthers = true;
-                    }
-                    continue;
-                }
-                auto findNeighbor = halfEdges.find(edge);
-                if (findNeighbor != halfEdges.end() && !visitedTriangles[findNeighbor->second])
-                    frontTriangleIndices.push(findNeighbor->second);
-            }
-        };
-        
-        auto addBackTriangle = [&](size_t triangleIndex) {
-            if (visitedTriangles[triangleIndex])
-                return;
-            const auto &face = triangles[triangleIndex];
-            visitedTriangles[triangleIndex] = true;
-            backSurface.faces.push_back(face);
-            for (size_t m = 0; m < 3; ++m) {
-                size_t n = (m + 1) % 3;
-                auto edge = std::make_pair(face.indices[n], face.indices[m]);
-                auto findEdgeLoop = edgeToLoopMap.find(edge);
-                if (findEdgeLoop != edgeToLoopMap.end()) {
-                    if (findEdgeLoop->second.first != edgeLoopIndex) {
-                        auto &edgeLoopName = edgeLoopNames[findEdgeLoop->second.first];
-                        if (reviseEdgeLoopsDirection) {
-                            if (findEdgeLoop->second.second != true) {
-                                edgeLoopFlippedMap[findEdgeLoop->second.first] = true;
-                                edgeLoopQueue.push(findEdgeLoop->second.first);
-                            }
-                        }
-                        backSurface.ownerNames.insert(std::make_pair(edgeLoopName, true));
-                        backSurface.isSharedByOthers = true;
-                    }
-                    continue;
-                }
-                auto findNeighbor = halfEdges.find(edge);
-                if (findNeighbor != halfEdges.end() && !visitedTriangles[findNeighbor->second])
-                    backTriangleIndices.push(findNeighbor->second);
-            }
-        };
-        
-        for (size_t i = 0; i < edgeLoop.size(); ++i) {
-            size_t j = (i + 1) % edgeLoop.size();
-            auto edge = std::make_pair(edgeLoop[i], edgeLoop[j]);
-            auto findTriangle = halfEdges.find(edge);
-            if (findTriangle != halfEdges.end())
-                frontTriangleIndices.push(findTriangle->second);
-            auto oppositeEdge = std::make_pair(edge.second, edge.first);
-            auto findOppositeTriangle = halfEdges.find(oppositeEdge);
-            if (findOppositeTriangle != halfEdges.end())
-                backTriangleIndices.push(findOppositeTriangle->second);
-        }
-        
-        while (!frontTriangleIndices.empty()) {
-            auto triangleIndex = frontTriangleIndices.front();
-            frontTriangleIndices.pop();
-            addFrontTriangle(triangleIndex);
-        }
-        
-        while (!backTriangleIndices.empty()) {
-            auto triangleIndex = backTriangleIndices.front();
-            backTriangleIndices.pop();
-            addBackTriangle(triangleIndex);
-        }
-        
-        subSurfaces.push_back(frontSurface);
-        subSurfaces.push_back(backSurface);
-    };
-    
-    for (size_t waitEdgeLoopIndex = 0; waitEdgeLoopIndex < edgeLoops.size(); ++waitEdgeLoopIndex) {
-        edgeLoopQueue.push(waitEdgeLoopIndex);
-        while (!edgeLoopQueue.empty()) {
-            auto edgeLoopIndex = edgeLoopQueue.front();
-            edgeLoopQueue.pop();
-            if (visitedEdgeLoops.find(edgeLoopIndex) != visitedEdgeLoops.end())
                 continue;
-            visitedEdgeLoops.insert(edgeLoopIndex);
-            if (edgeLoopFlippedMap[edgeLoopIndex]) {
-                auto &edgeLoop = edgeLoops[edgeLoopIndex];
-                std::reverse(edgeLoop.begin(), edgeLoop.end());
+            visitedTriangles[triangleIndex] = true;
+            const auto &triangle = triangles[triangleIndex];
+            subSurface.faces.push_back(triangle);
+            for (size_t i = 0; i < 3; ++i) {
+                size_t j = (i + 1) % 3;
+                auto edge = std::make_pair(triangle.indices[i], triangle.indices[j]);
+                auto findEdgeLoop = edgeToLoopMap.find(edge);
+                if (findEdgeLoop != edgeToLoopMap.end()) {
+                    subSurface.owners.insert(findEdgeLoop->second);
+                } else {
+                    auto findNeighbor = halfEdges.find(std::make_pair(edge.second, edge.first));
+                    if (findNeighbor != halfEdges.end() &&
+                            !visitedTriangles[findNeighbor->second]) {
+                        waitTriangles.push(findNeighbor->second);
+                    }
+                }
             }
-            buildSubSurfacesFromEdgeLoop(edgeLoopIndex);
+        }
+        if (subSurface.faces.empty())
+            continue;
+        if (subSurface.owners.size() <= 1) {
+            subSurfaces.push_back(subSurface);
+            continue;
+        }
+        for (const auto &owner: subSurface.owners) {
+            SubSurface neighbor = subSurface;
+            neighbor.edgeLoopIndex = owner.first;
+            neighbor.isFrontSide = owner.second;
+            neighbor.isSharedByOthers = true;
+            subSurfaces.push_back(neighbor);
         }
     }
+    
+    //qDebug() << "subSurfaces.size:" << subSurfaces.size();
+    //for (const auto &it: subSurfaces) {
+    //    qDebug() << "[" << it.edgeLoopIndex << "] [" << (it.isFrontSide ? "Front" : "Back") << "] faces:" << it.faces.size();
+    //}
 }
 
 }

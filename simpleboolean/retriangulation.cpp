@@ -41,6 +41,8 @@ void ReTriangulation::recalculateEdgeLoops()
     std::set<size_t> endpoints;
     for (const auto &edgeLoop: m_edgeLoops) {
         if (edgeLoop.front() != edgeLoop.back()) {
+            //qDebug() << "Open edgeloop:" << edgeLoop;
+        
             endpoints.insert(edgeLoop.front());
             endpoints.insert(edgeLoop.back());
             
@@ -49,9 +51,9 @@ void ReTriangulation::recalculateEdgeLoops()
                 newEdges.push_back({edgeLoop[i], edgeLoop[i - 1]});
             }
         } else {
-            std::vector<size_t> newEdgeLoop; // Remove the head
-            for (size_t i = 1; i < edgeLoop.size(); ++i)
-                newEdgeLoop.push_back(edgeLoop[i]);
+            //qDebug() << "Closed edgeloop:" << edgeLoop;
+            std::vector<size_t> newEdgeLoop(edgeLoop); // Remove the head/tail
+            newEdgeLoop.pop_back();
             m_closedEdgeLoops.push_back(newEdgeLoop);
         }
     }

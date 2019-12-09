@@ -111,7 +111,6 @@ void AxisAlignedBoudingBoxTree::splitNode(Node *node)
         const auto &boxIndex = boxIndices[i];
         const AxisAlignedBoudingBox &box = (*m_boxes)[boxIndex];
         const auto &center = box.center().xyz[longestAxis];
-        //qDebug() << "[" << i << "] center:" << box.center().xyz[0] << box.center().xyz[1] << box.center().xyz[2] << "lontest:" << longestAxis << "splitPoint:" << splitPoint << "current:" << center;
         if (center < splitPoint)
             leftBoxIndices.push_back(boxIndex);
         else
@@ -144,8 +143,6 @@ void AxisAlignedBoudingBoxTree::splitNode(Node *node)
         node->right->center += box.center();
     }
     node->right->center /= rightBoxIndices.size();
-
-    //qDebug() << "Split[" << (uint64_t)node << "]:" << splitPoint << "left:" << node->left->boxIndices.size() << "right:" << node->right->boxIndices.size();
 
     node->left->center /= (float)node->left->boxIndices.size();
     splitNode(node->left);

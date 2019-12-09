@@ -10,31 +10,31 @@ bool SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
         const std::vector<SubSurface> &secondSubSurfaces,
         std::vector<SubBlock> &subBlocks)
 {
-    if (firstSubSurfaces.empty() || firstSubSurfaces.size() != secondSubSurfaces.size())
+    if (firstSubSurfaces.empty())
         return false;
     
-    using SubSurfaceNameMap = std::map<QString, std::array<std::array<const SubSurface *, 2>, 2>>;
+    using SubSurfaceNameMap = std::map<size_t, std::array<std::array<const SubSurface *, 2>, 2>>;
     
     auto buildSubSurfaceNameMap = [](const std::vector<SubSurface> &subSurfaces,
             size_t sourceMesh,
             SubSurfaceNameMap &nameMap) {
         for (const auto &subSurface: subSurfaces) {
             if (subSurface.isFrontSide)
-                nameMap[subSurface.edgeLoopName][sourceMesh][0] = &subSurface;
+                nameMap[subSurface.edgeLoopIndex][sourceMesh][0] = &subSurface;
             else
-                nameMap[subSurface.edgeLoopName][sourceMesh][1] = &subSurface;
+                nameMap[subSurface.edgeLoopIndex][sourceMesh][1] = &subSurface;
         }
     };
     SubSurfaceNameMap subSurfaceNameMap;
     buildSubSurfaceNameMap(firstSubSurfaces, 0, subSurfaceNameMap);
     buildSubSurfaceNameMap(secondSubSurfaces, 1, subSurfaceNameMap);
     
-    std::map<QString, std::map<int, bool>> cyclesTemplate;
-    std::set<std::pair<QString, size_t>> visited;
+    std::map<size_t, std::map<int, bool>> cyclesTemplate;
+    std::set<std::pair<size_t, size_t>> visited;
     for (size_t firstSubSurfaceIndex = 0; firstSubSurfaceIndex < firstSubSurfaces.size(); ++firstSubSurfaceIndex) {
-        std::queue<std::tuple<QString, size_t, size_t>> waitCycles;
+        std::queue<std::tuple<size_t, size_t, size_t>> waitCycles;
         const auto &firstSubSurface = firstSubSurfaces[firstSubSurfaceIndex];
-        waitCycles.push({firstSubSurface.edgeLoopName, 0, firstSubSurface.isFrontSide ? 0 : 1});
+        waitCycles.push({firstSubSurface.edgeLoopIndex, 0, firstSubSurface.isFrontSide ? 0 : 1});
         while (!waitCycles.empty()) {
             auto cycle = waitCycles.front();
             waitCycles.pop();
@@ -51,29 +51,55 @@ bool SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
                 qDebug() << "Found invalid cycle";
                 return false;
             }
-            for (const auto &neighbor: currentSubSurface->ownerNames) {
+            //qDebug() << "==========================================";
+            for (const auto &neighbor: currentSubSurface->owners) {
                 cyclesTemplate[neighbor.first].insert({sourceMesh, neighbor.second});
-                waitCycles.push({neighbor.first, oppositeMesh, !neighbor.second});
+                visited.insert(std::make_pair(neighbor.first, sourceMesh));
+                auto &neighborMapItem = subSurfaceNameMap[neighbor.first];
+                auto neighborSideIndex = neighbor.second ? 0 : 1;
+                const SubSurface *neighborSubSurface = neighborMapItem[oppositeMesh][neighborSideIndex];
+                if (nullptr == neighborSubSurface)
+                    continue;
+                for (const auto &neighborNeighbor: neighborSubSurface->owners) {
+                    waitCycles.push({neighborNeighbor.first, oppositeMesh, neighborNeighbor.second});
+                }
             }
         }
     }
-    auto createSubBlockFromTemplate = [&](const std::map<QString, std::map<int, bool>> &cycles,
+    //for (const auto &it: cyclesTemplate) {
+    //    qDebug() << it.first;
+    //    qDebug() << it.second;
+    //}
+    auto createSubBlockFromTemplate = [&](const std::map<size_t, std::map<int, bool>> &cycles,
             bool flipFirst, bool flipSecond) {
         SubBlock subBlock;
         for (const auto &cycle: cycles) {
             for (const auto &side: cycle.second) {
                 const auto &sourceMesh = side.first;
-                auto isFrontSide = side.second;
-                if ((0 == sourceMesh && flipFirst) ||
-                        (1 == sourceMesh && flipSecond)) {
-                    isFrontSide = !isFrontSide;
-                }
+                bool flipSide = (0 == sourceMesh && flipFirst) ||
+                        (1 == sourceMesh && flipSecond);
+                auto isFrontSide = flipSide ? (!side.second) : side.second;
                 const auto &sideIndex = isFrontSide ? 0 : 1;
                 auto &mapItem = subSurfaceNameMap[cycle.first];
                 const SubSurface *currentSubSurface = mapItem[sourceMesh][sideIndex];
-                for (const auto &face: currentSubSurface->faces) {
-                    subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, sourceMesh});
-                }
+                if (nullptr == currentSubSurface)
+                    continue;
+                //if (flipSide) {
+                //    size_t oppositeSideIndex = 0 == sideIndex ? 1 : 0;
+                //    for (const auto &neighbor: currentSubSurface->ownerNames) {
+                //        auto &neighborMapItem = subSurfaceNameMap[neighbor.first];
+                //        const SubSurface *neighborSubSurface = neighborMapItem[sourceMesh][oppositeSideIndex];
+                //        if (nullptr == neighborSubSurface)
+                //            continue;
+                //        for (const auto &face: neighborSubSurface->faces) {
+                //            subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, sourceMesh});
+                //        }
+                //    }
+                //} else {
+                    for (const auto &face: currentSubSurface->faces) {
+                        subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, sourceMesh});
+                    }
+                //}
                 subBlock.cycles[cycle.first].insert({sourceMesh, isFrontSide});
             }
         }
