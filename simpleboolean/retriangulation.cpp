@@ -8,6 +8,7 @@
 #include <map>
 #include <cmath>
 #include <QDebug>
+#include <QVector3D>
 
 namespace simpleboolean
 {
@@ -39,6 +40,8 @@ void ReTriangulation::recalculateEdgeLoops()
     // Test all heads and tails of open edge loops with the edges of triangle,
     // order by distances per each triangle edge.
     std::set<size_t> endpoints;
+    std::set<size_t> collapsedEndpoints;
+    std::vector<std::pair<size_t, size_t>> oneSegmentEdges;
     for (const auto &edgeLoop: m_edgeLoops) {
         if (edgeLoop.front() != edgeLoop.back()) {
             //qDebug() << "Open edgeloop:" << edgeLoop;
@@ -46,9 +49,13 @@ void ReTriangulation::recalculateEdgeLoops()
             endpoints.insert(edgeLoop.front());
             endpoints.insert(edgeLoop.back());
             
-            for (size_t i = 1; i < edgeLoop.size(); ++i) {
-                newEdges.push_back({edgeLoop[i - 1], edgeLoop[i]});
-                newEdges.push_back({edgeLoop[i], edgeLoop[i - 1]});
+            if (edgeLoop.size() > 2) {
+                for (size_t i = 1; i < edgeLoop.size(); ++i) {
+                    newEdges.push_back({edgeLoop[i - 1], edgeLoop[i]});
+                    newEdges.push_back({edgeLoop[i], edgeLoop[i - 1]});
+                }
+            } else {
+                oneSegmentEdges.push_back(std::make_pair(edgeLoop[0], edgeLoop[1]));
             }
         } else {
             //qDebug() << "Closed edgeloop:" << edgeLoop;
@@ -58,42 +65,37 @@ void ReTriangulation::recalculateEdgeLoops()
         }
     }
     
-    std::vector<float> triangleEdgeLengths;
-    for (size_t i = 0; i < 3; ++i) {
-        size_t j = (i + 1) % 3;
-        triangleEdgeLengths.push_back(distanceOfVertices(m_vertices[m_triangle[i]], m_vertices[m_triangle[j]]));
-    }
-    std::map<std::pair<size_t, size_t>, float> distancesBetweenEndpointAndCorner;
-    for (const auto index: endpoints) {
-        for (size_t i = 0; i < 3; ++i) {
-            distancesBetweenEndpointAndCorner.insert({{index, i},
-                distanceOfVertices(m_vertices[index], m_vertices[m_triangle[i]])
-            });
-        }
-    }
     std::map<size_t, std::vector<std::pair<size_t, float>>> endpointsAttachedToEdges;
-    for (const auto index: endpoints) {
+    for (const auto &index: endpoints) {
         std::vector<std::tuple<size_t, float, float>> offsets;
         bool collapsed = false;
+        const auto &vertex = m_vertices[index];
+        QVector3D endpointPosition(vertex.xyz[0], vertex.xyz[1], vertex.xyz[2]);
+        size_t attachToEdge = 0;
+        float shortestDistance = std::numeric_limits<float>::max();
         for (size_t i = 0; i < 3; ++i) {
             if (m_triangle[i] == index) {
                 collapsed = true;
                 break;
             }
             size_t j = (i + 1) % 3;
-            float firstHalf = distancesBetweenEndpointAndCorner[{index, i}];
-            float secondHalf = distancesBetweenEndpointAndCorner[{index, j}];
-            float lengthOffset = abs(firstHalf + secondHalf - triangleEdgeLengths[i]);
-            offsets.push_back({i, lengthOffset, firstHalf});
+            const auto &vertexI = m_vertices[m_triangle[i]];
+            QVector3D pointI(vertexI.xyz[0], vertexI.xyz[1], vertexI.xyz[2]);
+            const auto &vertexJ = m_vertices[m_triangle[j]];
+            QVector3D pointJ(vertexJ.xyz[0], vertexJ.xyz[1], vertexJ.xyz[2]);
+            float distance = endpointPosition.distanceToLine(pointI, (pointJ - pointI).normalized());
+            if (distance < shortestDistance) {
+                attachToEdge = i;
+                shortestDistance = distance;
+            }
         }
-        if (collapsed)
+        if (collapsed) {
+            collapsedEndpoints.insert(index);
             continue;
-        std::sort(offsets.begin(), offsets.end(), [](const std::tuple<size_t, float, float> &first,
-                const std::tuple<size_t, float, float> &second) {
-            return std::get<1>(first) < std::get<1>(second);
-        });
-        endpointsAttachedToEdges[std::get<0>(offsets.front())].push_back({index,
-            std::get<2>(offsets.front())});
+        }
+        const auto &corner = m_vertices[m_triangle[attachToEdge]];
+        QVector3D cornerPosition(corner.xyz[0], corner.xyz[1], corner.xyz[2]);
+        endpointsAttachedToEdges[attachToEdge].push_back({index, (endpointPosition - cornerPosition).lengthSquared()});
     }
     for (auto &it: endpointsAttachedToEdges) {
         size_t startCorner = m_triangle[it.first];
@@ -122,6 +124,14 @@ void ReTriangulation::recalculateEdgeLoops()
         }
         //qDebug() << "Empty triangle edge:" << m_triangle[i] << m_triangle[(i + 1) % 3];
         newEdges.push_back({m_triangle[i], m_triangle[(i + 1) % 3]});
+    }
+    
+    for (const auto &edge: oneSegmentEdges) {
+        if (collapsedEndpoints.find(edge.first) == collapsedEndpoints.end() ||
+                collapsedEndpoints.find(edge.second) == collapsedEndpoints.end()) {
+            newEdges.push_back(edge);
+            newEdges.push_back(std::make_pair(edge.second, edge.first));
+        }
     }
     
     buildEdgeLoopsFromDirectedEdges(newEdges, &m_recalculatedEdgeLoops);

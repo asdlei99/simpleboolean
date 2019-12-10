@@ -51,7 +51,6 @@ bool SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
                 qDebug() << "Found invalid cycle";
                 return false;
             }
-            //qDebug() << "==========================================";
             for (const auto &neighbor: currentSubSurface->owners) {
                 cyclesTemplate[neighbor.first].insert({sourceMesh, neighbor.second});
                 visited.insert(std::make_pair(neighbor.first, sourceMesh));
@@ -66,10 +65,6 @@ bool SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
             }
         }
     }
-    //for (const auto &it: cyclesTemplate) {
-    //    qDebug() << it.first;
-    //    qDebug() << it.second;
-    //}
     auto createSubBlockFromTemplate = [&](const std::map<size_t, std::map<int, bool>> &cycles,
             bool flipFirst, bool flipSecond) {
         SubBlock subBlock;
@@ -84,22 +79,9 @@ bool SubBlock::createSubBlocks(const std::vector<SubSurface> &firstSubSurfaces,
                 const SubSurface *currentSubSurface = mapItem[sourceMesh][sideIndex];
                 if (nullptr == currentSubSurface)
                     continue;
-                //if (flipSide) {
-                //    size_t oppositeSideIndex = 0 == sideIndex ? 1 : 0;
-                //    for (const auto &neighbor: currentSubSurface->ownerNames) {
-                //        auto &neighborMapItem = subSurfaceNameMap[neighbor.first];
-                //        const SubSurface *neighborSubSurface = neighborMapItem[sourceMesh][oppositeSideIndex];
-                //        if (nullptr == neighborSubSurface)
-                //            continue;
-                //        for (const auto &face: neighborSubSurface->faces) {
-                //            subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, sourceMesh});
-                //        }
-                //    }
-                //} else {
-                    for (const auto &face: currentSubSurface->faces) {
-                        subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, sourceMesh});
-                    }
-                //}
+                for (const auto &face: currentSubSurface->faces) {
+                    subBlock.faces.insert({std::array<size_t, 3> {{face.indices[0], face.indices[1], face.indices[2]}}, sourceMesh});
+                }
                 subBlock.cycles[cycle.first].insert({sourceMesh, isFrontSide});
             }
         }
