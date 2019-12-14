@@ -74,4 +74,24 @@ void exportTriangulatedObj(const Mesh &mesh, const QString &filename)
     }
 }
 
+void exportEdgeLoopsAsObj(const std::vector<Vertex> &vertices,
+        const std::vector<std::vector<size_t>> &edgeLoops,
+        const QString &filename)
+{
+    QFile file(filename);
+    if (file.open(QIODevice::WriteOnly)) {
+        QTextStream stream(&file);
+        for (std::vector<Vertex>::const_iterator it = vertices.begin(); it != vertices.end(); ++it) {
+            stream << "v " << (*it).xyz[0] << " " << -(*it).xyz[1] << " " << -(*it).xyz[2] << endl;
+        }
+        for (std::vector<std::vector<size_t>>::const_iterator it = edgeLoops.begin(); it != edgeLoops.end(); ++it) {
+            stream << "f";
+            for (std::vector<size_t>::const_iterator subIt = it->begin(); subIt != it->end(); ++subIt) {
+                stream << " " << (1 + *subIt);
+            }
+            stream << endl;
+        }
+    }
+}
+
 }

@@ -95,6 +95,7 @@ bool nodemesh::validatePosition(const QVector3D &position)
     return true;
 }
 
+/*
 bool nodemesh::triangulate(std::vector<QVector3D> &vertices, const std::vector<std::vector<size_t>> &faces, std::vector<std::vector<size_t>> &triangles)
 {
     auto cgalMesh = buildCgalMesh<InexactKernel>(vertices, faces);
@@ -169,6 +170,7 @@ bool nodemesh::triangulate(std::vector<QVector3D> &vertices, const std::vector<s
     }
     return isSucceed;
 }
+*/
 
 void nodemesh::exportMeshAsObj(const std::vector<QVector3D> &vertices, const std::vector<std::vector<size_t>> &faces, const QString &filename, const std::set<size_t> *excludeFacesOfVertices)
 {

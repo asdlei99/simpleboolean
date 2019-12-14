@@ -1,7 +1,7 @@
 #include <queue>
 #include <map>
 #include <set>
-#include <simpleboolean/meshcombiner.h>
+#include <simpleboolean/meshoperator.h>
 #include <simpleboolean/retriangulation.h>
 #include <simpleboolean/edgeloop.h>
 #include <simpleboolean/subsurface.h>
@@ -14,14 +14,14 @@
 namespace simpleboolean
 {
 
-int MeshCombiner::m_vertexToKeyMultiplyFactor = 1000;
+int MeshOperator::m_vertexToKeyMultiplyFactor = 1000;
 
-MeshCombiner::~MeshCombiner()
+MeshOperator::~MeshOperator()
 {
     delete m_potentialIntersectedPairs;
 }
 
-void MeshCombiner::setMeshes(const Mesh &first, const Mesh &second)
+void MeshOperator::setMeshes(const Mesh &first, const Mesh &second)
 {
     m_firstMesh = first;
     m_secondMesh = second;
@@ -39,21 +39,21 @@ void MeshCombiner::setMeshes(const Mesh &first, const Mesh &second)
     }
 }
 
-void MeshCombiner::addMeshToAxisAlignedBoundingBox(const Mesh &mesh, AxisAlignedBoudingBox &box)
+void MeshOperator::addMeshToAxisAlignedBoundingBox(const Mesh &mesh, AxisAlignedBoudingBox &box)
 {
     for (const auto &vertex: mesh.vertices) {
         box.update(vertex);
     }
 }
 
-void MeshCombiner::addFaceToAxisAlignedBoundingBox(const Mesh &mesh, const Face &face, AxisAlignedBoudingBox &box)
+void MeshOperator::addFaceToAxisAlignedBoundingBox(const Mesh &mesh, const Face &face, AxisAlignedBoudingBox &box)
 {
     for (size_t i = 0; i < 3; ++i) {
         box.update(mesh.vertices[face.indices[i]]);
     }
 }
 
-void MeshCombiner::searchPotentialIntersectedPairs()
+void MeshOperator::searchPotentialIntersectedPairs()
 {
     AxisAlignedBoudingBox firstBox;
     AxisAlignedBoudingBox secondBox;
@@ -88,7 +88,7 @@ void MeshCombiner::searchPotentialIntersectedPairs()
     m_potentialIntersectedPairs = leftTree.test(leftTree.root(), rightTree.root(), &m_secondMeshFaceAABBs);
 }
 
-bool MeshCombiner::intersectTwoFaces(size_t firstIndex, size_t secondIndex, std::pair<Vertex, Vertex> &newEdge)
+bool MeshOperator::intersectTwoFaces(size_t firstIndex, size_t secondIndex, std::pair<Vertex, Vertex> &newEdge)
 {
     const auto &firstFace = m_firstMesh.faces[firstIndex];
     const auto &secondFace = m_secondMesh.faces[secondIndex];
@@ -109,15 +109,15 @@ bool MeshCombiner::intersectTwoFaces(size_t firstIndex, size_t secondIndex, std:
     return true;
 }
 
-std::tuple<int, int, int> MeshCombiner::vertexToKey(const Vertex &vertex)
+std::tuple<int, int, int> MeshOperator::vertexToKey(const Vertex &vertex)
 {
-    return {vertex.xyz[0] * MeshCombiner::m_vertexToKeyMultiplyFactor,
-        vertex.xyz[1] * MeshCombiner::m_vertexToKeyMultiplyFactor,
-        vertex.xyz[2] * MeshCombiner::m_vertexToKeyMultiplyFactor
+    return {vertex.xyz[0] * MeshOperator::m_vertexToKeyMultiplyFactor,
+        vertex.xyz[1] * MeshOperator::m_vertexToKeyMultiplyFactor,
+        vertex.xyz[2] * MeshOperator::m_vertexToKeyMultiplyFactor
     };
 }
 
-size_t MeshCombiner::newVertexToIndex(const Vertex &vertex, std::pair<size_t, size_t> oldVertex)
+size_t MeshOperator::newVertexToIndex(const Vertex &vertex, std::pair<size_t, size_t> oldVertex)
 {
     if (0 == oldVertex.first) {
         auto key = vertexToKey(vertex);
@@ -148,13 +148,13 @@ size_t MeshCombiner::newVertexToIndex(const Vertex &vertex, std::pair<size_t, si
     return newIndex;
 }
 
-void MeshCombiner::groupEdgesToLoops(const std::vector<std::pair<size_t, size_t>> &edges,
+void MeshOperator::groupEdgesToLoops(const std::vector<std::pair<size_t, size_t>> &edges,
         std::vector<std::vector<size_t>> &edgeLoops)
 {
     EdgeLoop::buildEdgeLoopsFromDirectedEdges(edges, &edgeLoops, true, false);
 }
 
-bool MeshCombiner::combine()
+bool MeshOperator::combine()
 {
     QElapsedTimer elapsedTimer;
     elapsedTimer.start();
@@ -244,6 +244,7 @@ bool MeshCombiner::combine()
         m_debugFirstMesh.faces = m_firstTriangles;
         qDebug() << "    Add unintsersected took" << (elapsedTimer.elapsed() - addUnIntersectedStartTime) << "milliseconds";
         EdgeLoop::merge(edgeLoops, &firstMergedEdgeLoops);
+        exportEdgeLoopsAsObj(m_newVertices, edgeLoops, "/Users/jeremy/Desktop/debug-edgeloop-first.obj");
         auto createSubSurfacesStartTime = elapsedTimer.elapsed();
         m_firstVisitedTriangles.resize(m_firstTriangles.size(), false);
         SubSurface::createSubSurfaces(firstMergedEdgeLoops, m_firstTriangles, m_firstVisitedTriangles, m_firstSubSurfaces);
@@ -259,8 +260,9 @@ bool MeshCombiner::combine()
         m_debugSecondMesh.vertices = m_newVertices;
         m_debugSecondMesh.faces = m_secondTriangles;
         qDebug() << "    Add unintsersected took" << (elapsedTimer.elapsed() - addUnIntersectedStartTime) << "milliseconds";
-        //std::vector<std::vector<size_t>> secondMergedEdgeLoops;
-        //EdgeLoop::merge(edgeLoops, &secondMergedEdgeLoops);
+        std::vector<std::vector<size_t>> secondMergedEdgeLoops;
+        EdgeLoop::merge(edgeLoops, &secondMergedEdgeLoops);
+        exportEdgeLoopsAsObj(m_newVertices, secondMergedEdgeLoops, "/Users/jeremy/Desktop/debug-edgeloop-second.obj");
         auto createSubSurfacesStartTime = elapsedTimer.elapsed();
         //EdgeLoop::unifyDirection(firstMergedEdgeLoops, &secondMergedEdgeLoops);
         //auto testFirstLoops = firstMergedEdgeLoops;
@@ -302,7 +304,7 @@ bool MeshCombiner::combine()
     return true;
 }
 
-void MeshCombiner::getResult(Type booleanType, Mesh *result)
+void MeshOperator::getResult(Type booleanType, Mesh *result)
 {
     size_t index = (size_t)booleanType;
     if (index >= m_indicesToSubBlocks.size())

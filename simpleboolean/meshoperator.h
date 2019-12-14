@@ -9,13 +9,13 @@
 namespace simpleboolean 
 {
 
-class MeshCombiner
+class MeshOperator
 {
 public:
     void setMeshes(const Mesh &first, const Mesh &second);
     bool combine();
     void getResult(Type booleanType, Mesh *result);
-    ~MeshCombiner();
+    ~MeshOperator();
     std::vector<Mesh> m_debugSubBlocks;
     Mesh m_debugFirstMesh;
     Mesh m_debugSecondMesh;

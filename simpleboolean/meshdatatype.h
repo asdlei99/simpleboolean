@@ -61,6 +61,9 @@ struct Mesh
 
 bool loadTriangulatedObj(Mesh &mesh, const QString &filename);
 void exportTriangulatedObj(const Mesh &mesh, const QString &filename);
+void exportEdgeLoopsAsObj(const std::vector<Vertex> &vertices,
+        const std::vector<std::vector<size_t>> &edgeLoops,
+        const QString &filename);
   
 }
 

@@ -210,28 +210,22 @@ bool ReTriangulation::attachClosedEdgeLoopsToOutter()
     return true;
 }
 
-// https://github.com/greenm01/poly2tri/blob/master/testbed/main.cc
-template <class C> void FreeClear( C & cntr )
+void ReTriangulation::addFacesToHalfEdges(const std::vector<Face> &faces,
+        std::set<std::pair<size_t, size_t>> *halfEdges)
 {
-    for ( typename C::iterator it = cntr.begin();
-              it != cntr.end(); ++it ) {
-        delete * it;
-    }
-    cntr.clear();
-}
-
-void ReTriangulation::unifyFaceDirections(const std::vector<Face> &existedFaces,
-        std::vector<Face> *newFaces)
-{
-    if (existedFaces.empty())
-        return;
-    std::set<std::pair<size_t, size_t>> halfEdges;
-    for (const auto &face: existedFaces) {
+    for (const auto &face: faces) {
         for (size_t i = 0; i < 3; ++i) {
             size_t j = (i + 1) % 3;
-            halfEdges.insert(std::make_pair(face.indices[i], face.indices[j]));
+            halfEdges->insert(std::make_pair(face.indices[i], face.indices[j]));
         }
     }
+}
+
+void ReTriangulation::unifyFaceDirections(const std::set<std::pair<size_t, size_t>> &halfEdges,
+        std::vector<Face> *newFaces)
+{
+    if (halfEdges.empty())
+        return;
     for (const auto &face: *newFaces) {
         for (size_t i = 0; i < 3; ++i) {
             size_t j = (i + 1) % 3;
@@ -242,6 +236,16 @@ void ReTriangulation::unifyFaceDirections(const std::vector<Face> &existedFaces,
             }
         }
     }
+}
+
+// https://github.com/greenm01/poly2tri/blob/master/testbed/main.cc
+template <class C> void FreeClear( C & cntr )
+{
+    for (typename C::iterator it = cntr.begin();
+            it != cntr.end(); ++it) {
+        delete * it;
+    }
+    cntr.clear();
 }
 
 void ReTriangulation::reTriangulate()
@@ -335,13 +339,15 @@ void ReTriangulation::reTriangulate()
             
             delete cdt;
             
+            std::set<std::pair<size_t, size_t>> halfEdges;
+            addFacesToHalfEdges(outterFaces, &halfEdges);
             std::vector<Face> holeTriangles;
             for (size_t i = 0; i < holePolylines.size(); i++) {
                 std::vector<p2t::Point*> polyline = holePolylines[i];
                 p2t::CDT *holeCdt = new p2t::CDT(polyline);
                 holeCdt->Triangulate();
                 std::vector<Face> holeFaces = fetchTriangulatedResult(holeCdt->GetTriangles(), pointToIndexMap);
-                unifyFaceDirections(outterFaces, &holeFaces);
+                unifyFaceDirections(halfEdges, &holeFaces);
                 for (const auto &it: holeFaces)
                     m_reTriangulatedTriangles.push_back(it);
                 holeTriangles.insert(holeTriangles.end(), holeFaces.begin(), holeFaces.end());
@@ -352,6 +358,14 @@ void ReTriangulation::reTriangulate()
                 std::vector<p2t::Point*> poly = polylines[i];
                 FreeClear(poly);
             }
+            
+            //addFacesToHalfEdges(holeTriangles, &halfEdges);
+            //const auto &outterEdgeLoop = m_recalculatedEdgeLoops[outter];
+            //for (size_t i = 0; i < outterEdgeLoop.size(); ++i) {
+            //    size_t j = (i + 1) % outterEdgeLoop.size();
+            //    halfEdges.insert(std::make_pair(outterEdgeLoop[j], outterEdgeLoop[i]));
+            //}
+            //fillHoles(&halfEdges);
         }
     }
 }

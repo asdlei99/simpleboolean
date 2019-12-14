@@ -1,5 +1,5 @@
 #include <QApplication>
-#include <simpleboolean/meshcombiner.h>
+#include <simpleboolean/meshoperator.h>
 #include <string.h>
 #include <stdio.h>
 #include <QElapsedTimer>
@@ -13,8 +13,8 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    const char *firstObj = "/Users/jeremy/Repositories/simpleboolean/models/meerkat.obj";
-    const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/seagull.obj";
+    const char *firstObj = "/Users/jeremy/Repositories/simpleboolean/models/addax.obj";
+    const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/meerkat.obj";
     
     //const char *firstObj = "/Users/jeremy/Repositories/simpleboolean/models/box.obj";
     //const char *secondObj = "/Users/jeremy/Repositories/simpleboolean/models/subdived-box.obj";
@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     elapsedTimer.start();
     
     auto simpleBooleanStartTime = elapsedTimer.elapsed();
-    simpleboolean::MeshCombiner combiner;
+    simpleboolean::MeshOperator combiner;
     combiner.setMeshes(mesh1, mesh2);
     bool combineSucceed = combiner.combine();
     
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
     
     {
         std::vector<simpleboolean::Mesh> debugMeshes = {
-            combiner.m_debugFirstMesh, combiner.m_debugSecondMesh
+            combiner.m_debugFirstMesh, combiner.m_debugSecondMesh, mesh1
         };
         auto debugMesh = collectMeshesToList(debugMeshes);
         exportTriangulatedObj(debugMesh, QString("/Users/jeremy/Desktop/debug-list.obj"));

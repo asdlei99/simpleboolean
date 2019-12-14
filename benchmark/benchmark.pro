@@ -57,8 +57,8 @@ HEADERS += simpleboolean/subblock.h
 SOURCES += simpleboolean/distinguish.cpp
 HEADERS += simpleboolean/distinguish.h
 
-SOURCES += simpleboolean/meshcombiner.cpp
-HEADERS += simpleboolean/meshcombiner.h
+SOURCES += simpleboolean/meshoperator.cpp
+HEADERS += simpleboolean/meshoperator.h
 
 SOURCES += simpleboolean/util.cpp
 HEADERS += simpleboolean/util.h

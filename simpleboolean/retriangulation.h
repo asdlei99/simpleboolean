@@ -3,6 +3,7 @@
 #include <simpleboolean/meshdatatype.h>
 #include <vector>
 #include <map>
+#include <set>
 
 namespace simpleboolean
 {
@@ -35,8 +36,11 @@ private:
     void convertVerticesTo2D();
     void convertEdgeLoopsToVertices2D();
     bool attachClosedEdgeLoopsToOutter();
-    void unifyFaceDirections(const std::vector<Face> &existedFaces,
+    void addFacesToHalfEdges(const std::vector<Face> &faces,
+        std::set<std::pair<size_t, size_t>> *halfEdges);
+    void unifyFaceDirections(const std::set<std::pair<size_t, size_t>> &halfEdges,
         std::vector<Face> *newFaces);
+    //void fillHoles(std::set<std::pair<size_t, size_t>> *halfEdges);
 };
   
 }
